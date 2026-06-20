@@ -1,41 +1,36 @@
 package com.acorp.jvminsight.container.dto;
 
-
+import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import java.util.List;
 
-import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
-
 public class AggregatorSnapshot {
-    public PodInfo pod;
-    public long time;
-    public List<JvmSnapshot> jvmSnapshots;
-    
-    public AggregatorSnapshot() {
-    }
+  public PodInfo pod;
+  public long time;
+  public List<JvmSnapshot> jvmSnapshots;
 
-    public void setPod(PodInfo pod) {
-        this.pod = pod;
-    }
+  public AggregatorSnapshot() {}
 
-    public void setTime(long time) {
-        this.time = time;
-    }
+  public void setPod(PodInfo pod) {
+    this.pod = pod;
+  }
 
-    public void setJvmSnapshots(List<JvmSnapshot> jvmSnapshots) {
-        this.jvmSnapshots = jvmSnapshots;
-    }
+  public void setTime(long time) {
+    this.time = time;
+  }
 
-    public PodInfo getPod() {
-        return pod;
-    }
+  public void setJvmSnapshots(List<JvmSnapshot> jvmSnapshots) {
+    this.jvmSnapshots = jvmSnapshots;
+  }
 
-    public long getTime() {
-        return time;
-    }
+  public PodInfo getPod() {
+    return pod;
+  }
 
-    public List<JvmSnapshot> getJvmSnapshots() {
-        return jvmSnapshots;
-    }
+  public long getTime() {
+    return time;
+  }
 
-    
+  public List<JvmSnapshot> getJvmSnapshots() {
+    return jvmSnapshots;
+  }
 }
