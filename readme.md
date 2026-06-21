@@ -1,6 +1,6 @@
 
 
-# JVM Night's Watcher – Initial Phase Documentation
+# JVM **A-Haytham** – Initial Phase Documentation
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![JMX](https://img.shields.io/badge/JMX-enabled-brightgreen)
 ![Attach API](https://img.shields.io/badge/Attach%20API-supported-blue)
@@ -12,7 +12,7 @@
 ![OpenShift](https://img.shields.io/badge/OpenShift-ready-EE0000?logo=redhatopenshift&logoColor=white)
 ## Overview
 
-**JVM Night's Watcher** is a **lightweight, JVM monitoring tool** designed to observe **multiple running JVM processes** from a single host.
+**JVM A-Haytham is a **lightweight, JVM monitoring tool** designed to observe **multiple running JVM processes** from a single host.
 ![Design](jvm-frontend/docs/assets/jvm-nightwatch-overview.png)
 It is intentionally built **without Spring Boot or heavy frameworks** to remain:
 
