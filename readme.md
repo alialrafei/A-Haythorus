@@ -1,7 +1,14 @@
 
 
 # JVM Night's Watcher – Initial Phase Documentation
-
+![Java](https://img.shields.io/badge/Java-21-orange)
+![JMX](https://img.shields.io/badge/JMX-enabled-brightgreen)
+![Attach API](https://img.shields.io/badge/Attach%20API-supported-blue)
+![Multi-PID](https://img.shields.io/badge/Multi--PID-supported-purple)
+![Sidecar](https://img.shields.io/badge/Sidecar-ready-success)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-compatible-326CE5?logo=kubernetes&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![Status](https://img.shields.io/badge/status-active-success)
 ## Overview
 
 **JVM Night's Watcher** is a **lightweight, native Java JVM monitoring tool** designed to observe **multiple running JVM processes** from a single host.
