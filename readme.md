@@ -9,6 +9,7 @@
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-compatible-326CE5?logo=kubernetes&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Status](https://img.shields.io/badge/status-active-success)
+![OpenShift](https://img.shields.io/badge/OpenShift-ready-EE0000?logo=redhatopenshift&logoColor=white)
 ## Overview
 
 **JVM Night's Watcher** is a **lightweight, JVM monitoring tool** designed to observe **multiple running JVM processes** from a single host.
