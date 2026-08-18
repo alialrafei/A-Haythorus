@@ -3,7 +3,6 @@ package com.acorp.jvminsight;
 import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.discovery.JvmProcessLocator;
 import com.acorp.jvminsight.httpserver.HttpServerUtil;
-import com.acorp.jvminsight.httpserver.SidecarPushScheduler;
 import com.acorp.jvminsight.snapshotcollection.service.JvmCollector;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -25,10 +24,10 @@ public class Main {
       t.start();
     }
     // start http server
-    HttpServerUtil.StartHttpServer();
+    HttpServerUtil.startHttpServer();
 
     // start aggregator push loop
-    SidecarPushScheduler.start();
+    // SidecarPushScheduler.start();
 
     // keep my app alive
     Thread.currentThread().join();

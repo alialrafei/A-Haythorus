@@ -1,0 +1,970 @@
+openapi: 3.0.3
+
+info:
+  title: A-Haythorus Sidecar API
+  version: 1.0.0
+  description: |
+    REST API exposed by the A-Haythorus JVM observability sidecar.
+
+    Each sidecar monitors one or more JVMs visible inside its runtime environment
+    and exposes the latest in-memory snapshot collected by the JVM collectors.
+
+    The API is intentionally lightweight and implemented using
+    `com.sun.net.httpserver.HttpServer`.
+
+servers:
+  - url: http://localhost:8899
+    description: Local development server
+
+tags:
+  - name: Metadata
+    description: Sidecar metadata and identity.
+  - name: Snapshot
+    description: Complete local sidecar snapshot.
+  - name: JVMs
+    description: JVM-specific observability resources.
+
+paths:
+
+  /:
+    get:
+      tags:
+        - Metadata
+      summary: Get sidecar metadata
+      operationId: getRootMetadata
+      responses:
+        "200":
+          description: Sidecar metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RootMetadataResponse"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/snapshot:
+    get:
+      tags:
+        - Snapshot
+      summary: Get the complete local sidecar snapshot
+      description: |
+        Returns the complete AggregatorSnapshot for the current sidecar,
+        including pod information and all monitored JVM snapshots.
+      operationId: getLocalSnapshot
+      responses:
+        "200":
+          description: Complete local sidecar snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregatorSnapshot"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/jvms:
+    get:
+      tags:
+        - JVMs
+      summary: Get all monitored JVM snapshots
+      operationId: getJvmSnapshots
+      responses:
+        "200":
+          description: List of monitored JVM snapshots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JvmSnapshot"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/jvms/{pid}:
+    get:
+      tags:
+        - JVMs
+      summary: Get the complete snapshot for one JVM
+      operationId: getJvmSnapshot
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Complete JVM snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JvmSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/jvms/{pid}/memory:
+    get:
+      tags:
+        - JVMs
+      summary: Get JVM memory usage
+      operationId: getJvmMemory
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: JVM heap and non-heap memory snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemorySnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/memory-pools:
+    get:
+      tags:
+        - JVMs
+      summary: Get JVM memory pools
+      operationId: getJvmMemoryPools
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Memory pool snapshots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemoryPoolSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/gc:
+    get:
+      tags:
+        - JVMs
+      summary: Get garbage collector statistics
+      operationId: getJvmGc
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Garbage collector snapshots.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GcSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/histogram:
+    get:
+      tags:
+        - JVMs
+      summary: Get JVM class histogram
+      operationId: getJvmHistogram
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: JVM object/class histogram.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClassHistogramEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/threads:
+    get:
+      tags:
+        - JVMs
+      summary: Get parsed JVM thread dump
+      operationId: getJvmThreads
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Parsed thread dump.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreadDumpSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/thread-info:
+    get:
+      tags:
+        - JVMs
+      summary: Get detailed JVM ThreadInfo entries
+      operationId: getJvmThreadInfo
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Detailed ThreadMXBean thread information.
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: "#/components/schemas/ThreadInfo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/thread-count:
+    get:
+      tags:
+        - JVMs
+      summary: Get JVM thread count
+      operationId: getJvmThreadCount
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Current thread count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreadCountResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/thread-cpu-times:
+    get:
+      tags:
+        - JVMs
+      summary: Get raw JVM thread CPU times
+      operationId: getJvmThreadCpuTimes
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: |
+            Map where the key is the JVM thread ID and the value is the
+            ThreadMXBean CPU time counter in nanoseconds.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                  format: int64
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/analysis:
+    get:
+      tags:
+        - JVMs
+      summary: Get JVM delta and leak analysis
+      operationId: getJvmAnalysis
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Computed delta analysis for the JVM.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JvmDeltaSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/deadlocks:
+    get:
+      tags:
+        - JVMs
+      summary: Get JVM deadlock information
+      operationId: getJvmDeadlocks
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Current deadlock state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlockResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+  /api/v1/jvms/{pid}/timestamp:
+    get:
+      tags:
+        - JVMs
+      summary: Get the timestamp of the latest JVM snapshot
+      operationId: getJvmSnapshotTimestamp
+      parameters:
+        - $ref: "#/components/parameters/Pid"
+      responses:
+        "200":
+          description: Latest snapshot timestamp.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimestampResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/JvmNotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+
+components:
+
+  parameters:
+    Pid:
+      name: pid
+      in: path
+      required: true
+      description: JVM process identifier.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      example: 12345
+
+  responses:
+
+    BadRequest:
+      description: Invalid request or malformed JVM PID.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    JvmNotFound:
+      description: No monitored JVM exists for the supplied PID.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    MethodNotAllowed:
+      description: HTTP method is not supported by this endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+
+    RootMetadataResponse:
+      type: object
+      properties:
+        application:
+          type: string
+          example: A-Haythorus
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix epoch timestamp in milliseconds.
+        pod:
+          $ref: "#/components/schemas/PodInfo"
+        monitoredJvmCount:
+          type: integer
+          format: int32
+          example: 2
+      required:
+        - application
+        - version
+        - timestamp
+        - pod
+        - monitoredJvmCount
+
+    AggregatorSnapshot:
+      type: object
+      properties:
+        pod:
+          $ref: "#/components/schemas/PodInfo"
+        time:
+          type: integer
+          format: int64
+          description: Unix epoch timestamp in milliseconds.
+        jvmSnapshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/JvmSnapshot"
+      required:
+        - pod
+        - time
+        - jvmSnapshots
+
+    PodInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: local-dev
+        namespace:
+          type: string
+          example: default
+        node:
+          type: string
+          example: localhost
+        app:
+          type: string
+          example: demo-app
+
+    JvmSnapshot:
+      type: object
+      properties:
+        pid:
+          type: integer
+          format: int64
+        threadsInfos:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ThreadInfo"
+        memory:
+          $ref: "#/components/schemas/MemorySnapshot"
+        gc:
+          type: array
+          items:
+            $ref: "#/components/schemas/GcSnapshot"
+        pools:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryPoolSnapshot"
+        histogram:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassHistogramEntry"
+        timestamp:
+          type: integer
+          format: int64
+        delta:
+          allOf:
+            - $ref: "#/components/schemas/JvmDeltaSnapshot"
+          nullable: true
+        deadlocks:
+          type: array
+          nullable: true
+          items:
+            type: integer
+            format: int64
+        threadCount:
+          type: integer
+          format: int64
+        threadCpuTimes:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+            format: int64
+        dumpSnapshot:
+          allOf:
+            - $ref: "#/components/schemas/ThreadDumpSnapshot"
+          nullable: true
+
+    MemorySnapshot:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+        heapUsed:
+          type: integer
+          format: int64
+        heapCommitted:
+          type: integer
+          format: int64
+        heapMax:
+          type: integer
+          format: int64
+        nonHeapUsed:
+          type: integer
+          format: int64
+        nonHeapCommitted:
+          type: integer
+          format: int64
+
+    MemoryPoolSnapshot:
+      type: object
+      properties:
+        name:
+          type: string
+        used:
+          type: integer
+          format: int64
+        committed:
+          type: integer
+          format: int64
+        max:
+          type: integer
+          format: int64
+
+    GcSnapshot:
+      type: object
+      properties:
+        name:
+          type: string
+        collectionCount:
+          type: integer
+          format: int64
+        collectionTimeMillis:
+          type: integer
+          format: int64
+
+    ClassHistogramEntry:
+      type: object
+      properties:
+        className:
+          type: string
+        instances:
+          type: integer
+          format: int64
+        bytes:
+          type: integer
+          format: int64
+
+    ThreadDumpSnapshot:
+      type: object
+      properties:
+        threads:
+          type: array
+          items:
+            $ref: "#/components/schemas/ThreadDumpThread"
+        summary:
+          $ref: "#/components/schemas/ThreadSummary"
+
+    ThreadDumpThread:
+      type: object
+      properties:
+        threadName:
+          type: string
+        threadId:
+          type: integer
+          format: int64
+        priority:
+          type: integer
+          format: int32
+        daemon:
+          type: boolean
+        inNative:
+          type: boolean
+        state:
+          type: string
+        lockName:
+          type: string
+          nullable: true
+        lockOwnerId:
+          type: integer
+          format: int64
+          nullable: true
+        lockOwnerName:
+          type: string
+          nullable: true
+        stackTrace:
+          type: array
+          items:
+            type: string
+
+    ThreadSummary:
+      type: object
+      properties:
+        runnable:
+          type: integer
+          format: int32
+        waiting:
+          type: integer
+          format: int32
+        timedWaiting:
+          type: integer
+          format: int32
+        blocked:
+          type: integer
+          format: int32
+        terminated:
+          type: integer
+          format: int32
+        unknown:
+          type: integer
+          format: int32
+
+    ThreadInfo:
+      type: object
+      description: |
+        Serialized representation of java.lang.management.ThreadInfo.
+        The exact field set is determined by Jackson serialization of the JDK type.
+      additionalProperties: true
+
+    JvmDeltaSnapshot:
+      type: object
+      properties:
+        intervalMillis:
+          type: integer
+          format: int64
+
+        previousHeapUsed:
+          type: integer
+          format: int64
+        currentHeapUsed:
+          type: integer
+          format: int64
+        heapDelta:
+          type: integer
+          format: int64
+        heapGrowthPercentage:
+          type: number
+          format: double
+
+        previousNonHeapUsed:
+          type: integer
+          format: int64
+        currentNonHeapUsed:
+          type: integer
+          format: int64
+        nonHeapDelta:
+          type: integer
+          format: int64
+        nonHeapGrowthPercentage:
+          type: number
+          format: double
+
+        previousThreadCount:
+          type: integer
+          format: int64
+        currentThreadCount:
+          type: integer
+          format: int64
+        threadDelta:
+          type: integer
+          format: int64
+        threadGrowthPercentage:
+          type: number
+          format: double
+
+        gcDelta:
+          type: array
+          items:
+            $ref: "#/components/schemas/GcDeltaSnapshot"
+
+        histogramDelta:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistogramDelta"
+
+        poolDelta:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryPoolDelta"
+
+        currentDeadlockCount:
+          type: integer
+          format: int32
+
+        deadlockDelta:
+          type: integer
+          format: int32
+
+        leakSeverity:
+          type: string
+          nullable: true
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+            - CRITICAL
+
+        cpuDelta:
+          allOf:
+            - $ref: "#/components/schemas/CpuDeltaSnapshot"
+          nullable: true
+
+        leakScore:
+          type: integer
+          format: int32
+          minimum: 0
+
+        leakReasons:
+          type: array
+          items:
+            type: string
+
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+
+        threadCpuTimes:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+            format: int64
+
+    GcDeltaSnapshot:
+      type: object
+      properties:
+        gcName:
+          type: string
+        previousCollectionCount:
+          type: integer
+          format: int64
+        currentCollectionCount:
+          type: integer
+          format: int64
+        collectionCountDelta:
+          type: integer
+          format: int64
+        collectionCountGrowthPercentage:
+          type: number
+          format: double
+        previousCollectionTimeMillis:
+          type: integer
+          format: int64
+        currentCollectionTimeMillis:
+          type: integer
+          format: int64
+        collectionTimeDeltaMillis:
+          type: integer
+          format: int64
+        collectionTimeGrowthPercentage:
+          type: number
+          format: double
+
+    HistogramDelta:
+      type: object
+      properties:
+        className:
+          type: string
+        previousBytes:
+          type: integer
+          format: int64
+        currentBytes:
+          type: integer
+          format: int64
+        bytesDelta:
+          type: integer
+          format: int64
+        previousInstances:
+          type: integer
+          format: int64
+        currentInstances:
+          type: integer
+          format: int64
+        instancesDelta:
+          type: integer
+          format: int64
+
+    MemoryPoolDelta:
+      type: object
+      properties:
+        poolName:
+          type: string
+        previousUsed:
+          type: integer
+          format: int64
+        currentUsed:
+          type: integer
+          format: int64
+        usedDelta:
+          type: integer
+          format: int64
+        usedGrowthPercentage:
+          type: number
+          format: double
+        previousCommitted:
+          type: integer
+          format: int64
+        currentCommitted:
+          type: integer
+          format: int64
+        committedDelta:
+          type: integer
+          format: int64
+        committedGrowthPercentage:
+          type: number
+          format: double
+        previousMax:
+          type: integer
+          format: int64
+        currentMax:
+          type: integer
+          format: int64
+        maxDelta:
+          type: integer
+          format: int64
+
+    CpuDeltaSnapshot:
+      type: object
+      properties:
+        topConsumers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CpuThreadConsumer"
+
+    CpuThreadConsumer:
+      type: object
+      properties:
+        threadId:
+          type: integer
+          format: int64
+        threadName:
+          type: string
+          nullable: true
+        cpuTimeDeltaNanos:
+          type: integer
+          format: int64
+
+    Recommendation:
+      type: object
+      properties:
+        severity:
+          type: string
+        confidence:
+          type: number
+          format: double
+        title:
+          type: string
+        diagnosis:
+          type: string
+        probableCause:
+          type: string
+        recommendation:
+          type: string
+        evidence:
+          type: string
+
+    ThreadCountResponse:
+      type: object
+      properties:
+        pid:
+          type: integer
+          format: int64
+        threadCount:
+          type: integer
+          format: int64
+        timestamp:
+          type: integer
+          format: int64
+      required:
+        - pid
+        - threadCount
+        - timestamp
+
+    DeadlockResponse:
+      type: object
+      properties:
+        pid:
+          type: integer
+          format: int64
+        count:
+          type: integer
+          format: int32
+        threadIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        threads:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ThreadInfo"
+        timestamp:
+          type: integer
+          format: int64
+      required:
+        - pid
+        - count
+        - threadIds
+        - timestamp
+
+    TimestampResponse:
+      type: object
+      properties:
+        pid:
+          type: integer
+          format: int64
+        timestamp:
+          type: integer
+          format: int64
+      required:
+        - pid
+        - timestamp
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+          example: 404
+        error:
+          type: string
+          example: Not Found
+        message:
+          type: string
+          example: JVM not found for PID 12345
+        timestamp:
+          type: integer
+          format: int64
+      additionalProperties: true

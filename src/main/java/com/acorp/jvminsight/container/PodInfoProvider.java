@@ -21,7 +21,7 @@ public final class PodInfoProvider {
 
     pod.setNamespace(getEnvOrDefault("POD_NAMESPACE", ConfigLoader.get("pod.namespace")));
 
-    pod.setNode(getEnvOrDefault("NODE_NAME", ConfigLoader.get("node.name")));
+    pod.setNode(getEnvOrDefault("NODE_NAME", ConfigLoader.get("pod.node")));
 
     pod.setApp(getEnvOrDefault("APP_NAME", ConfigLoader.get("app.name")));
 

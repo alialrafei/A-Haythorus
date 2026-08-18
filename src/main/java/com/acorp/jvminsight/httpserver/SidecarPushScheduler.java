@@ -1,10 +1,10 @@
 package com.acorp.jvminsight.httpserver;
 
-import com.acorp.jvminsight.httpserver.controller.AggregatorController;
-import com.acorp.jvminsight.httpserver.service.SidecarPushService;
+import com.acorp.jvminsight.httpserver.service.SnapshotService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Deprecated
 public final class SidecarPushScheduler {
   private static final Logger LOGGER = LoggerFactory.getLogger(SidecarPushScheduler.class);
   private static final long PUSH_INTERVAL_MS = 5500;
@@ -21,15 +21,15 @@ public final class SidecarPushScheduler {
                 try {
                   LOGGER.debug("Starting snapshot collection and push cycle.");
                   Thread.sleep(PUSH_INTERVAL_MS);
-                  String json = SidecarPushService.buildSnapshotJson();
+                  String json = SnapshotService.buildSnapshotJson();
                   if (json == null) {
                     LOGGER.warn("Skipping aggregator push because payload generation failed.");
                     continue;
                   }
                   LOGGER.info("Generated snapshot payload successfully ({} bytes).", json.length());
                   LOGGER.info(json);
-                  AggregatorController.push(json);
-                  LOGGER.info("Snapshot pushed successfully to aggregator.");
+                  // AggregatorController.push(json);
+                  // LOGGER.info("Snapshot pushed successfully to aggregator.");
 
                 } catch (InterruptedException ex) {
                   LOGGER.warn("Sidecar push thread interrupted. Stopping scheduler.", ex);

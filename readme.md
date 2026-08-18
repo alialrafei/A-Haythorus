@@ -1,7 +1,7 @@
 
 
 # JVM **A-Haytham** – Initial Phase Documentation
-![Java](https://img.shields.io/badge/Java-21-orange)
+![Java](https://img.shields.io/badge/Java-25-orange)
 ![JMX](https://img.shields.io/badge/JMX-enabled-brightgreen)
 ![Attach API](https://img.shields.io/badge/Attach%20API-supported-blue)
 ![Multi-PID](https://img.shields.io/badge/Multi--PID-supported-purple)
