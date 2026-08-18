@@ -9,6 +9,7 @@ import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.LeakDetect
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.MemoryDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.MemoryPoolDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.ThreadDeltaStrategy;
+import java.time.Duration;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,7 @@ public final class DeltaEngine {
 
       return delta;
     }
-    delta.setIntervalMillis(current.getTimestamp() - previous.getTimestamp());
+    delta.setIntervalMillis(Duration.between(previous.getTimestamp(), current.getTimestamp()));
 
     for (DeltaComputationStrategy strategy : STRATEGIES) {
       long start = System.nanoTime();

@@ -6,6 +6,7 @@ import com.acorp.jvminsight.container.dto.PodInfo;
 import com.acorp.jvminsight.snapshotcollection.JvmDataStore;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +45,7 @@ public final class SnapshotService {
     JvmDataStore.getDateStored().forEach((pid, jvm) -> snapshots.add(jvm));
 
     snapshot.setJvmSnapshots(snapshots);
-    snapshot.setTime(System.currentTimeMillis());
+    snapshot.setTime(Instant.now());
     snapshot.setPod(POD_INFO);
 
     return snapshot;

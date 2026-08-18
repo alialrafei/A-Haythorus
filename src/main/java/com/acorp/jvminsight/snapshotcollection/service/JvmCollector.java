@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,12 +111,11 @@ public class JvmCollector implements Runnable {
                     new Object[] {new String[] {"-all"}},
                     new String[] {"[Ljava.lang.String;"});
         List<ClassHistogramEntry> classesHistogram = HistogramParser.parse(histogram);
-        classesHistogram =
-            HistogramParser.sortByBytesDesc(classesHistogram).stream().limit(50).toList();
+        classesHistogram = HistogramParser.sortByBytesDesc(classesHistogram).stream().toList();
         snapshot.setHistogram(classesHistogram);
         LOGGER.debug(
             "Collected histogram with {} classes for pid={}", classesHistogram.size(), pid);
-        snapshot.setTimestamp(System.currentTimeMillis());
+        snapshot.setTimestamp(Instant.now());
         JvmDeltaSnapshot jvmDeltaSnapshot =
             DeltaEngine.compute(JvmDataStore.getSnapshot(pid), snapshot);
         snapshot.setDelta(jvmDeltaSnapshot);

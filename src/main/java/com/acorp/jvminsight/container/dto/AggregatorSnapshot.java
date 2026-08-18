@@ -1,11 +1,12 @@
 package com.acorp.jvminsight.container.dto;
 
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
+import java.time.Instant;
 import java.util.List;
 
 public class AggregatorSnapshot {
   public PodInfo pod;
-  public long time;
+  public Instant time;
   public List<JvmSnapshot> jvmSnapshots;
 
   public AggregatorSnapshot() {}
@@ -14,7 +15,7 @@ public class AggregatorSnapshot {
     this.pod = pod;
   }
 
-  public void setTime(long time) {
+  public void setTime(Instant time) {
     this.time = time;
   }
 
@@ -26,7 +27,7 @@ public class AggregatorSnapshot {
     return pod;
   }
 
-  public long getTime() {
+  public Instant getTime() {
     return time;
   }
 

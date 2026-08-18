@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.dto.delta;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.Data;
@@ -7,7 +8,7 @@ import lombok.Data;
 @Data
 public class JvmDeltaSnapshot {
 
-  private long intervalMillis;
+  private Duration intervalMillis;
 
   private long previousHeapUsed;
 
