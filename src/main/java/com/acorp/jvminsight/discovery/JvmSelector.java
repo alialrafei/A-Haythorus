@@ -3,6 +3,8 @@ package com.acorp.jvminsight.discovery;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+@Slf4j
 public final class JvmSelector {
 
   private JvmSelector() {}
@@ -12,7 +14,8 @@ public final class JvmSelector {
     List<JvmCandidate> nonSelf = candidates.stream().filter(c -> !c.isSelf(selfPid)).toList();
 
     if (nonSelf.isEmpty()) {
-      throw new IllegalStateException("No target JVM found (only self JVM present)");
+      log.warn("No other JVMs detected. Unable to auto-select target.");
+      return List.of();
     }
 
     List<JvmCandidate> nonSidecar = nonSelf.stream().filter(c -> !c.looksLikeSidecar()).toList();
