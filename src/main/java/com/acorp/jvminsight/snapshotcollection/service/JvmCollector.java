@@ -284,7 +284,7 @@ public class JvmCollector implements Runnable {
     snapshot.setThreadCpuTimes(cpuTimes);
   }
 
-  private void collectMemory(JvmSnapshot snapshot) throws IOException {
+  private void collectMemory(JvmSnapshot snapshot) throws Exception {
 
     MemorySnapshot memory = MemoryCollector.collect(this.mbeanServer);
 
@@ -293,7 +293,7 @@ public class JvmCollector implements Runnable {
     LOGGER.debug("Heap usage pid={} : {} MB / {} MB", pid, mb(memory.heapUsed), mb(memory.heapMax));
   }
 
-  private void collectMemoryPools(JvmSnapshot snapshot) throws IOException {
+  private void collectMemoryPools(JvmSnapshot snapshot) throws Exception {
 
     List<MemoryPoolSnapshot> pools = MemoryPoolCollector.collect(mbeanServer);
 
@@ -302,7 +302,7 @@ public class JvmCollector implements Runnable {
     LOGGER.debug("Collected {} memory pools for pid={}", pools.size(), pid);
   }
 
-  private void collectGc(JvmSnapshot snapshot) throws IOException {
+  private void collectGc(JvmSnapshot snapshot) throws Exception {
 
     List<GcSnapshot> gcs = GcCollector.collect(this.mbeanServer);
 
