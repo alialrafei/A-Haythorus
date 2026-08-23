@@ -6,6 +6,8 @@ public final class RouteConstants {
 
   public static final String ROOT = "/";
 
+  public static final String UI = "/ui";
+
   public static final String SNAPSHOT = "/api/v1/snapshot";
 
   public static final String CLUSTER = "/api/v1/cluster";

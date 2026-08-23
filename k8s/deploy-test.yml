@@ -1,0 +1,176 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ahaythorus-test
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ahaythorus
+  namespace: ahaythorus-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ahaythorus-discovery
+  namespace: ahaythorus-test
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ahaythorus-discovery
+  namespace: ahaythorus-test
+subjects:
+  - kind: ServiceAccount
+    name: ahaythorus
+    namespace: ahaythorus-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ahaythorus-discovery
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ahaythorus-test
+  namespace: ahaythorus-test
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ahaythorus-test
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ahaythorus-test
+        app.kubernetes.io/component: monitored-jvm
+        a-haythorus.io/enabled: "true"
+
+    spec:
+      serviceAccountName: ahaythorus
+      shareProcessNamespace: true
+
+      containers:
+        - name: dummy-java-app
+          image: ahaythorus-dummy-app:dev
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+        - name: a-haythorus
+          image: a-haythorus:dev
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8899
+              protocol: TCP
+
+          env:
+            - name: AH_RUNTIME_MODE
+              value: kubernetes
+
+            - name: AH_SERVER_HOST
+              value: "0.0.0.0"
+
+            - name: AH_SERVER_PORT
+              value: "8899"
+
+            - name: AH_UI_DIR
+              value: /app/ui
+
+            - name: AH_DISCOVERY_LABEL
+              value: a-haythorus.io/enabled=true
+
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+
+            - name: APP_NAME
+              value: dummy-java-app
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 2
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 160Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ahaythorus-test-ui
+  namespace: ahaythorus-test
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: ahaythorus-test
+
+  ports:
+    - name: http
+      port: 8899
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ahaythorus
+  namespace: ahaythorus-test
+
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ahaythorus-test-ui
+                port:
+                  number: 8899

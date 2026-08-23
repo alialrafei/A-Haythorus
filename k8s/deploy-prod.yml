@@ -1,0 +1,178 @@
+# Production template.
+#
+# Replace:
+#   YOUR_REGISTRY/YOUR_JAVA_APP:YOUR_TAG
+#   ghcr.io/alialrafei/a-haythorus:1.0.0
+#
+# Apply this manifest in the namespace where the monitored workload should run.
+#
+# Important:
+# - shareProcessNamespace must remain true.
+# - The application JVM and A-Haythorus must have compatible permissions for JVM Attach.
+# - The service account gets pod read permissions only inside this namespace.
+# - The UI remains internal through ClusterIP by default. Expose it with an Ingress/Route
+#   only when you have authentication/TLS in front of it.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ahaythorus
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ahaythorus-discovery
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ahaythorus-discovery
+subjects:
+  - kind: ServiceAccount
+    name: ahaythorus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ahaythorus-discovery
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-java-app
+  labels:
+    app.kubernetes.io/name: my-java-app
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: my-java-app
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: my-java-app
+        a-haythorus.io/enabled: "true"
+
+    spec:
+      serviceAccountName: ahaythorus
+      shareProcessNamespace: true
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: application
+          image: YOUR_REGISTRY/YOUR_JAVA_APP:YOUR_TAG
+          imagePullPolicy: IfNotPresent
+
+          # Keep the application container's own ports/env/resources here.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+        - name: a-haythorus
+          image: ghcr.io/alialrafei/a-haythorus:1.0.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: ahaythorus
+              containerPort: 8899
+              protocol: TCP
+
+          env:
+            - name: AH_RUNTIME_MODE
+              value: kubernetes
+
+            - name: AH_SERVER_HOST
+              value: "0.0.0.0"
+
+            - name: AH_SERVER_PORT
+              value: "8899"
+
+            - name: AH_UI_DIR
+              value: /app/ui
+
+            - name: AH_DISCOVERY_LABEL
+              value: a-haythorus.io/enabled=true
+
+            - name: AH_COLLECTOR_INTERVAL_MS
+              value: "5000"
+
+            - name: AH_CLUSTER_CONNECT_TIMEOUT_MS
+              value: "1000"
+
+            - name: AH_CLUSTER_REQUEST_TIMEOUT_MS
+              value: "2000"
+
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+
+            - name: APP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app.kubernetes.io/name']
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ahaythorus
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: ahaythorus
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 160Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ahaythorus-ui
+spec:
+  type: ClusterIP
+
+  selector:
+    a-haythorus.io/enabled: "true"
+
+  ports:
+    - name: http
+      port: 8899
+      targetPort: ahaythorus
+      protocol: TCP

@@ -1,20 +1,25 @@
 {
   "name": "jvm-frontend",
-  "productName": "jvm-frontend",
+  "productName": "A-Haythorus",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "A-Haythorus JVM observability UI",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
+    "build:web": "vite build --config vite.web.config.ts --outDir dist-web",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
   },
-  "keywords": [],
+  "keywords": [
+    "jvm",
+    "observability",
+    "kubernetes",
+    "monitoring"
+  ],
   "author": {
-    "name": "kamalsayed",
-    "email": "kmatsho63@gmail.com"
+    "name": "A-Haythorus contributors"
   },
   "license": "MIT",
   "devDependencies": {

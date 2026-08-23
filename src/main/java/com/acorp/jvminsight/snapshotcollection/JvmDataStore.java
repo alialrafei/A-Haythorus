@@ -20,4 +20,15 @@ public final class JvmDataStore {
   public static JvmSnapshot getSnapshot(long pid) {
     return SNAPSHOTS.get(pid);
   }
+
+  /**
+   * Removes the snapshot only if the value currently stored for this PID is exactly the snapshot
+   * supplied by the caller.
+   *
+   * <p>This protects against PID reuse and overlapping collectors.
+   */
+  public static boolean remove(long pid, JvmSnapshot expectedSnapshot) {
+
+    return SNAPSHOTS.remove(pid, expectedSnapshot);
+  }
 }

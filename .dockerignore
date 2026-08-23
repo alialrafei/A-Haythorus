@@ -3,5 +3,4 @@ target/
 .github/
 .idea/
 .vscode/
-jvm-frontend/
 *.log

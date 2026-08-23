@@ -1,0 +1,22 @@
+A-Haythorus UI refactor
+
+Replace the existing jvm-frontend/src directory with this src directory.
+
+Architecture changes:
+- Removes the old Express receive-data server and renderer IPC push model.
+- Electron main process now acts as a thin, read-only HTTP transport to the sidecar.
+- Renderer uses typed REST APIs through api/httpClient.ts + api/sidecarApi.ts.
+- Current /api/v1/snapshot response is normalized into AggregatorSnapshot[] so
+  a future fan-out implementation can return multiple pod snapshots without
+  forcing a UI rewrite.
+- Polling is every 5 seconds and builds a short in-memory history for charts.
+- UI supports cluster overview, pods/JVMs, problems, and a JVM drill-down with
+  memory, threads, GC, histogram, and analysis tabs.
+
+Runtime:
+- Default sidecar URL: http://127.0.0.1:8899
+- Override with AH_SIDECAR_URL for packaged Electron.
+- Optional AH_UI_REQUEST_TIMEOUT_MS (default 4000)
+- Optional AH_UI_DEVTOOLS=true
+
+No new npm dependencies are required beyond the repository's current package.json.
