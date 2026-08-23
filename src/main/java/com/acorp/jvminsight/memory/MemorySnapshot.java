@@ -2,6 +2,9 @@ package com.acorp.jvminsight.memory;
 
 import java.time.Instant;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class MemorySnapshot {
 
   public final Instant timestamp;
@@ -13,6 +16,22 @@ public class MemorySnapshot {
   public final long nonHeapUsed;
   public final long nonHeapCommitted;
 
+  @JsonCreator
+  public MemorySnapshot(
+      @JsonProperty("timestamp") Instant timestamp,
+      @JsonProperty("heapUsed") long heapUsed,
+      @JsonProperty("heapCommitted") long heapCommitted,
+      @JsonProperty("heapMax") long heapMax,
+      @JsonProperty("nonHeapUsed") long nonHeapUsed,
+      @JsonProperty("nonHeapCommitted") long nonHeapCommitted) {
+
+    this.timestamp = timestamp;
+    this.heapUsed = heapUsed;
+    this.heapCommitted = heapCommitted;
+    this.heapMax = heapMax;
+    this.nonHeapUsed = nonHeapUsed;
+    this.nonHeapCommitted = nonHeapCommitted;
+  }
   public Instant getTimestamp() {
     return timestamp;
   }

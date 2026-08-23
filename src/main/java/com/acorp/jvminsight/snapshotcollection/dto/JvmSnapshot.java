@@ -6,6 +6,8 @@ import com.acorp.jvminsight.memory.MemorySnapshot;
 import com.acorp.jvminsight.memory.histogram.ClassHistogramEntry;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.thread.dto.ThreadDumpSnapshot;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.lang.management.ThreadInfo;
 import java.time.Instant;
 import java.util.List;
@@ -15,6 +17,7 @@ import lombok.Data;
 @Data
 public class JvmSnapshot {
   private long pid;
+  @JsonIgnore
   private ThreadInfo[] threadsInfos;
   private MemorySnapshot memory;
   private List<GcSnapshot> gc;

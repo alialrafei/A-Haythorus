@@ -4,6 +4,7 @@ import com.acorp.jvminsight.cluster.kubernetes.KubernetesSslContextFactory;
 import com.acorp.jvminsight.cluster.kubernetes.dto.KubernetesPod;
 import com.acorp.jvminsight.cluster.kubernetes.dto.KubernetesPodList;
 import com.acorp.jvminsight.config.ConfigLoader;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -31,7 +32,11 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
 
   private static final Path NAMESPACE_PATH = SERVICE_ACCOUNT_DIR.resolve("namespace");
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper MAPPER =
+    new ObjectMapper()
+        .configure(
+            DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+            false);
 
   private final HttpClient httpClient;
 

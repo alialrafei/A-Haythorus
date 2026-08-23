@@ -165,7 +165,8 @@ metadata:
 
 spec:
   rules:
-    - http:
+    - host: ahaythorus.local
+      http:
         paths:
           - path: /
             pathType: Prefix

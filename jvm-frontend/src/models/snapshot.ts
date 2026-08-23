@@ -137,7 +137,7 @@ export interface Recommendation {
   diagnosis: string | null;
   probableCause: string | null;
   recommendation: string | null;
-  evidence: string | null;
+  evidence: string[] | null;
 }
 
 export interface JvmDeltaSnapshot {

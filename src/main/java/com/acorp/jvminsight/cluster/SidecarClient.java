@@ -2,6 +2,7 @@ package com.acorp.jvminsight.cluster;
 
 import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.container.dto.AggregatorSnapshot;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.net.URI;
@@ -17,7 +18,11 @@ public final class SidecarClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(SidecarClient.class);
 
   private static final ObjectMapper MAPPER =
-      new ObjectMapper().registerModule(new JavaTimeModule());
+    new ObjectMapper()
+        .registerModule(new JavaTimeModule())
+        .configure(
+            DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+            false);
 
   private final HttpClient httpClient;
 

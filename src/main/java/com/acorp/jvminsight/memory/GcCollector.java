@@ -9,7 +9,7 @@ import javax.management.MBeanServerConnection;
 public final class GcCollector {
 
   private GcCollector() {}
-
+  
   public static List<GcSnapshot> collect(MBeanServerConnection mbeanServer) throws Exception {
 
     List<GarbageCollectorMXBean> gcs =

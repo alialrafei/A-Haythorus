@@ -5,6 +5,8 @@ import com.acorp.jvminsight.httpserver.constant.RouteConstants;
 import com.acorp.jvminsight.httpserver.service.SnapshotService;
 import com.acorp.jvminsight.httpserver.util.JsonResponse;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
+import com.acorp.jvminsight.cluster.ClusterHeaders;
+import com.acorp.jvminsight.cluster.ClusterSnapshotService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -18,56 +20,107 @@ import org.slf4j.LoggerFactory;
 public final class SnapshotHandler implements HttpHandler {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnapshotHandler.class);
+  private static final ClusterSnapshotService CLUSTER_SNAPSHOT_SERVICE =
+    new ClusterSnapshotService();
+ @Override
+public void handle(HttpExchange exchange) throws IOException {
 
-  @Override
-  public void handle(HttpExchange exchange) throws IOException {
+  if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
 
-    if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+    JsonResponse.methodNotAllowed(exchange);
+    return;
+  }
 
-      JsonResponse.methodNotAllowed(exchange);
+  String path =
+      normalizePath(exchange.getRequestURI().getPath());
+
+  LOGGER.debug(
+      "Handling snapshot API request '{}'.",
+      path);
+
+  try {
+
+    /*
+     * /api/v1/snapshot has two modes:
+     *
+     * Public request:
+     *   return local + all discovered peer snapshots.
+     *
+     * Internal sidecar request:
+     *   return ONLY this sidecar's local snapshot.
+     *
+     * The local mode prevents:
+     *
+     * A -> B -> A -> B -> ...
+     */
+    if (RouteConstants.SNAPSHOT.equals(path)) {
+
+      if (isLocalOnlyRequest(exchange)) {
+
+        LOGGER.debug(
+            "Returning local-only snapshot.");
+
+        JsonResponse.ok(
+            exchange,
+            SnapshotService.getSnapshot());
+
+      } else {
+
+        LOGGER.debug(
+            "Returning cluster snapshot.");
+
+        JsonResponse.ok(
+            exchange,
+            CLUSTER_SNAPSHOT_SERVICE.getSnapshots());
+      }
+
       return;
     }
 
-    String path = normalizePath(exchange.getRequestURI().getPath());
+    /*
+     * Existing JVM resource endpoints are still local
+     * for now.
+     */
+    AggregatorSnapshot snapshot =
+        SnapshotService.getSnapshot();
 
-    LOGGER.debug("Handling snapshot API request '{}'.", path);
+    if (RouteConstants.JVMS.equals(path)) {
 
-    try {
+      List<JvmSnapshot> jvms =
+          snapshot.getJvmSnapshots();
 
-      AggregatorSnapshot snapshot = SnapshotService.getSnapshot();
+      JsonResponse.ok(
+          exchange,
+          jvms == null ? List.of() : jvms);
 
-      if (RouteConstants.SNAPSHOT.equals(path)) {
-
-        JsonResponse.ok(exchange, snapshot);
-
-        return;
-      }
-
-      if (RouteConstants.JVMS.equals(path)) {
-
-        List<JvmSnapshot> jvms = snapshot.getJvmSnapshots();
-
-        JsonResponse.ok(exchange, jvms == null ? List.of() : jvms);
-
-        return;
-      }
-
-      if (path.startsWith(RouteConstants.JVMS + "/")) {
-
-        handleJvmRoute(exchange, snapshot, path);
-
-        return;
-      }
-
-      JsonResponse.notFound(exchange);
-
-    } catch (Exception ex) {
-
-      LOGGER.error("Failed to process request '{}'.", path, ex);
-
-      JsonResponse.internalServerError(exchange, "Failed to process snapshot request.");
+      return;
     }
+
+    if (path.startsWith(
+        RouteConstants.JVMS + "/")) {
+
+      handleJvmRoute(
+          exchange,
+          snapshot,
+          path);
+
+      return;
+    }
+
+    JsonResponse.notFound(exchange);
+
+  } catch (Exception ex) {
+
+    LOGGER.error(
+        "Failed to process request '{}'.",
+        path,
+        ex);
+
+    JsonResponse.internalServerError(
+        exchange,
+        "Failed to process snapshot request.");
   }
+}
 
   private void handleJvmRoute(
       HttpExchange exchange, AggregatorSnapshot aggregatorSnapshot, String path)
@@ -219,4 +272,15 @@ public final class SnapshotHandler implements HttpHandler {
 
     return path;
   }
+  private boolean isLocalOnlyRequest(
+    HttpExchange exchange) {
+
+  String scope =
+      exchange
+          .getRequestHeaders()
+          .getFirst(ClusterHeaders.SCOPE);
+
+  return ClusterHeaders.LOCAL.equalsIgnoreCase(
+      scope);
+}
 }
