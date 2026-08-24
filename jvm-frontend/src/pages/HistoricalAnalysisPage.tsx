@@ -26,8 +26,7 @@ const REFRESH_MS = 5_000;
 
 export function HistoricalAnalysisPage() {
   const [root, setRoot] = useState<RootMetadata | null>(null);
-  const [jvms, setJvms] = useState<JvmSnapshot[]>([]);
-  const [selectedPid, setSelectedPid] = useState<number | null>(null);
+  const [jvm, setJvm] = useState<JvmSnapshot | null>(null);
   const [history, setHistory] = useState<JvmHistoryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,21 +43,17 @@ export function HistoricalAnalysisPage() {
         if (cancelled) return;
 
         setRoot(nextRoot);
-        setJvms(nextJvms);
 
-        const pid =
-          selectedPid != null && nextJvms.some((jvm) => jvm.pid === selectedPid)
-            ? selectedPid
-            : nextJvms[0]?.pid ?? null;
+        const localJvm = nextJvms[0] ?? null;
+        setJvm(localJvm);
 
-        setSelectedPid(pid);
-
-        if (pid == null) {
+        if (!localJvm) {
           setHistory(null);
           return;
         }
 
-        const nextHistory = await sidecarApi.getHistory(pid);
+        const nextHistory = await sidecarApi.getHistory(localJvm.pid);
+
         if (!cancelled) {
           setHistory(nextHistory);
           setError(null);
@@ -81,10 +76,8 @@ export function HistoricalAnalysisPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [selectedPid]);
+  }, []);
 
-  const selectedJvm =
-    jvms.find((jvm) => jvm.pid === selectedPid) ?? null;
   const samples = history?.history ?? [];
   const summary = useMemo(() => summarize(samples), [samples]);
 
@@ -98,30 +91,14 @@ export function HistoricalAnalysisPage() {
           </div>
           <span className="panel-meta">
             {root ? `${root.pod.namespace}/${root.pod.name}` : 'Loading sidecar…'}
+            {jvm ? ` · PID ${jvm.pid}` : ''}
           </span>
         </div>
 
         <p>
-          This view uses <code>/api/v1/jvms/{'{pid}'}/history</code>. It is intentionally
-          separate from the latest two-sample delta analysis so you can compare long-window
-          behavior against the most recent interval.
+          Each sidecar monitors one target JVM, so the UI automatically uses that local JVM and
+          fetches <code>/api/v1/jvms/{'{pid}'}/history</code>. No PID selection is required.
         </p>
-
-        {jvms.length > 1 ? (
-          <label>
-            JVM PID{' '}
-            <select
-              value={selectedPid ?? ''}
-              onChange={(event) => setSelectedPid(Number(event.target.value))}
-            >
-              {jvms.map((jvm) => (
-                <option key={jvm.pid} value={jvm.pid}>
-                  {jvm.pid}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
 
         {error ? <div className="stale-banner">{error}</div> : null}
       </section>
@@ -174,29 +151,29 @@ export function HistoricalAnalysisPage() {
             </div>
           </div>
 
-          {selectedJvm?.delta ? (
+          {jvm?.delta ? (
             <div className="delta-grid">
               <div>
                 <span>Heap</span>
-                <strong>{formatPercent(selectedJvm.delta.heapGrowthPercentage)}</strong>
-                <small>{formatBytes(selectedJvm.delta.heapDelta)}</small>
+                <strong>{formatPercent(jvm.delta.heapGrowthPercentage)}</strong>
+                <small>{formatBytes(jvm.delta.heapDelta)}</small>
               </div>
               <div>
                 <span>Non-heap</span>
-                <strong>{formatPercent(selectedJvm.delta.nonHeapGrowthPercentage)}</strong>
-                <small>{formatBytes(selectedJvm.delta.nonHeapDelta)}</small>
+                <strong>{formatPercent(jvm.delta.nonHeapGrowthPercentage)}</strong>
+                <small>{formatBytes(jvm.delta.nonHeapDelta)}</small>
               </div>
               <div>
                 <span>Threads</span>
                 <strong>
-                  {selectedJvm.delta.threadDelta >= 0 ? '+' : ''}
-                  {selectedJvm.delta.threadDelta}
+                  {jvm.delta.threadDelta >= 0 ? '+' : ''}
+                  {jvm.delta.threadDelta}
                 </strong>
                 <small>latest interval only</small>
               </div>
               <div>
                 <span>Instant evidence</span>
-                <strong>{selectedJvm.delta.instantaneousLeakScore}</strong>
+                <strong>{jvm.delta.instantaneousLeakScore}</strong>
                 <small>before historical smoothing</small>
               </div>
             </div>
@@ -262,6 +239,7 @@ function summarize(samples: JvmHistorySample[]) {
     ...Object.keys(last.gcCollectionCounts ?? {}),
   ]);
   let gcCollections = 0;
+
   gcNames.forEach((name) => {
     gcCollections += Math.max(
       0,
