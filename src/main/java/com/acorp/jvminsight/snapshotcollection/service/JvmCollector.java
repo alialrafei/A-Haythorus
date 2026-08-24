@@ -15,6 +15,8 @@ import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.DeltaEngine;
+import com.acorp.jvminsight.system.ProcessCpuSnapshot;
+import com.acorp.jvminsight.system.ProcessIoCollector;
 import com.acorp.jvminsight.thread.ThreadDumpParser;
 import com.acorp.jvminsight.thread.ThreadDumpService;
 import com.acorp.jvminsight.thread.dto.ThreadDumpSnapshot;
@@ -115,6 +117,8 @@ public class JvmCollector implements Runnable {
     collectMemory(snapshot);
     collectMemoryPools(snapshot);
     collectGc(snapshot);
+    collectProcessCpu(snapshot);
+    collectProcessIo(snapshot);
     collectHistogram(snapshot);
 
     snapshot.setTimestamp(Instant.now());
@@ -207,6 +211,33 @@ public class JvmCollector implements Runnable {
     List<GcSnapshot> gcs = GcCollector.collect(this.mbeanServer);
     snapshot.setGc(gcs);
     LOGGER.debug("Collected {} GC metrics for pid={}", gcs.size(), pid);
+  }
+
+  private void collectProcessCpu(JvmSnapshot snapshot) {
+    try {
+      com.sun.management.OperatingSystemMXBean osBean =
+          ManagementFactory.newPlatformMXBeanProxy(
+              mbeanServer,
+              ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME,
+              com.sun.management.OperatingSystemMXBean.class);
+
+      snapshot.setProcessCpu(
+          new ProcessCpuSnapshot(
+              osBean.getProcessCpuTime(),
+              osBean.getProcessCpuLoad(),
+              osBean.getCpuLoad(),
+              osBean.getAvailableProcessors()));
+    } catch (Exception ex) {
+      LOGGER.warn("Failed collecting process CPU metrics for pid={}", pid, ex);
+    }
+  }
+
+  private void collectProcessIo(JvmSnapshot snapshot) {
+    try {
+      snapshot.setProcessIo(ProcessIoCollector.collect(pid));
+    } catch (IOException | SecurityException ex) {
+      LOGGER.warn("Failed collecting /proc process IO metrics for pid={}", pid, ex);
+    }
   }
 
   private void collectHistogram(JvmSnapshot snapshot)
