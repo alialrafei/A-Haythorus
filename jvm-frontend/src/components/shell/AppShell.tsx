@@ -12,6 +12,7 @@ import { OverviewPage } from '../../pages/OverviewPage';
 import { PodsPage } from '../../pages/PodsPage';
 import { ProblemsPage } from '../../pages/ProblemsPage';
 import { ResourcesPage } from '../../pages/ResourcesPage';
+import { HistoricalAnalysisPage } from '../../pages/HistoricalAnalysisPage';
 import { JvmPage } from '../../pages/JvmPage';
 import { useMonitoring } from '../../context/MonitoringContext';
 
@@ -30,6 +31,10 @@ const pageCopy: Record<
   resources: {
     title: 'Process resources',
     subtitle: 'CPU and Linux I/O telemetry across monitored JVMs',
+  },
+  history: {
+    title: 'Historical analysis',
+    subtitle: 'Backend-retained JVM trends compared with the latest pairwise delta',
   },
   problems: {
     title: 'Problems',
@@ -145,6 +150,8 @@ export function AppShell() {
           {page === 'resources' ? (
             <ResourcesPage onOpenJvm={openJvm} />
           ) : null}
+
+          {page === 'history' ? <HistoricalAnalysisPage /> : null}
 
           {page === 'problems' ? (
             <ProblemsPage onOpenJvm={openJvm} />
