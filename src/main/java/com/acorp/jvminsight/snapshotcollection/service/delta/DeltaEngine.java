@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.delta;
 
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.CpuDeltaStrategy;
@@ -34,24 +35,25 @@ public final class DeltaEngine {
 
   private DeltaEngine() {}
 
-  /** Compatibility overload for callers that only have two snapshots. */
+  /** Compatibility overload for callers that only have two full snapshots. */
   public static JvmDeltaSnapshot compute(JvmSnapshot previous, JvmSnapshot current) {
-    List<JvmSnapshot> history = previous == null ? List.of() : List.of(previous);
-    return compute(history, current);
+    List<JvmHistorySample> history =
+        previous == null ? List.of() : List.of(JvmHistorySample.from(previous));
+    return compute(history, previous, current);
   }
 
   /**
-   * Computes the latest pairwise movement and the history-aware leak confidence.
+   * Computes latest pairwise movement and history-aware leak confidence.
    *
-   * @param retainedHistory snapshots already stored for this PID, oldest to newest
-   * @param current newly collected snapshot, not yet inserted in the store
+   * @param retainedHistory lightweight historical samples, oldest to newest
+   * @param previous previous full snapshot, used by pairwise strategies
+   * @param current newly collected full snapshot, not yet inserted into the store
    */
-  public static JvmDeltaSnapshot compute(List<JvmSnapshot> retainedHistory, JvmSnapshot current) {
-    LOGGER.debug("Starting delta computation for pid={}", current.getPid());
+  public static JvmDeltaSnapshot compute(
+      List<JvmHistorySample> retainedHistory, JvmSnapshot previous, JvmSnapshot current) {
 
+    LOGGER.debug("Starting delta computation for pid={}", current.getPid());
     JvmDeltaSnapshot delta = new JvmDeltaSnapshot();
-    JvmSnapshot previous =
-        retainedHistory.isEmpty() ? null : retainedHistory.get(retainedHistory.size() - 1);
 
     if (previous != null) {
       if (previous.getTimestamp() != null && current.getTimestamp() != null) {
