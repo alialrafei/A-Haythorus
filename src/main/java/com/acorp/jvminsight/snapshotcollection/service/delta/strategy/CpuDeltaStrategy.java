@@ -46,9 +46,7 @@ public final class CpuDeltaStrategy implements DeltaComputationStrategy {
 
     int processors = Math.max(1, current.getProcessCpu().availableProcessors());
     double utilization =
-        intervalNanos <= 0
-            ? 0.0
-            : (cpuDelta / (double) (intervalNanos * processors)) * 100.0;
+        intervalNanos <= 0 ? 0.0 : (cpuDelta / (double) (intervalNanos * processors)) * 100.0;
 
     snapshot.setProcessCpuTimeDeltaNanos(cpuDelta);
     snapshot.setProcessCpuUtilizationPercentage(Math.max(0.0, Math.min(100.0, utilization)));

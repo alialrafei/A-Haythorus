@@ -79,7 +79,8 @@ public final class DeltaEngine {
         }
       }
     } else {
-      LOGGER.debug("No previous snapshot found for pid={}; pairwise delta is empty.", current.getPid());
+      LOGGER.debug(
+          "No previous snapshot found for pid={}; pairwise delta is empty.", current.getPid());
     }
 
     try {

@@ -12,9 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In-memory JVM state store.
  *
- * <p>The latest full snapshot is retained for the REST API and pairwise delta computation. Historical
- * state is stored as lightweight {@link JvmHistorySample} records so thread dumps and class
- * histograms are not duplicated across the whole history window.
+ * <p>The latest full snapshot is retained for the REST API and pairwise delta computation.
+ * Historical state is stored as lightweight {@link JvmHistorySample} records so thread dumps and
+ * class histograms are not duplicated across the whole history window.
  */
 public final class JvmDataStore {
 
@@ -62,8 +62,8 @@ public final class JvmDataStore {
   /**
    * Removes the latest snapshot only when it is exactly the object supplied by the caller.
    *
-   * <p>This protects against PID reuse and overlapping collectors. History is removed only when
-   * the caller successfully removes the latest snapshot it owns.
+   * <p>This protects against PID reuse and overlapping collectors. History is removed only when the
+   * caller successfully removes the latest snapshot it owns.
    */
   public static boolean remove(long pid, JvmSnapshot expectedSnapshot) {
     boolean removed = SNAPSHOTS.remove(pid, expectedSnapshot);

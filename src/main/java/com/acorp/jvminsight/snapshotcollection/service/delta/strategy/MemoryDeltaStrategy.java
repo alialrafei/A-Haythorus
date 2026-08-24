@@ -10,9 +10,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Computes heap and non-heap memory movement between two JVM snapshots.
  *
- * <p>The signed delta is preserved, but growth and reclamation are also separated explicitly.
- * This matters for leak analysis: a positive delta is retention/growth evidence while a negative
- * delta is evidence that memory was reclaimed.
+ * <p>The signed delta is preserved, but growth and reclamation are also separated explicitly. This
+ * matters for leak analysis: a positive delta is retention/growth evidence while a negative delta
+ * is evidence that memory was reclaimed.
  */
 public final class MemoryDeltaStrategy implements DeltaComputationStrategy {
 

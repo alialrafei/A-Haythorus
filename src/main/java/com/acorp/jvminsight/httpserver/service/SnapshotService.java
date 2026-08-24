@@ -4,12 +4,15 @@ import com.acorp.jvminsight.container.PodInfoProvider;
 import com.acorp.jvminsight.container.dto.AggregatorSnapshot;
 import com.acorp.jvminsight.container.dto.PodInfo;
 import com.acorp.jvminsight.snapshotcollection.JvmDataStore;
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +52,10 @@ public final class SnapshotService {
     snapshot.setPod(POD_INFO);
 
     return snapshot;
+  }
+  
+  public static List<JvmHistorySample> getJvmHistory(Long pid) {
+    return JvmDataStore.getHistory(pid);
   }
 
   public static List<JvmSnapshot> getJvmSnapshots() {

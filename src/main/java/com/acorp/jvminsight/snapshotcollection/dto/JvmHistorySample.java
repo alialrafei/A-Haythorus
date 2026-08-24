@@ -6,7 +6,10 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Lightweight historical sample used for trend analysis without retaining heavy thread dumps or histograms. */
+/**
+ * Lightweight historical sample used for trend analysis without retaining heavy thread dumps or
+ * histograms.
+ */
 public record JvmHistorySample(
     Instant timestamp,
     long heapUsed,
@@ -27,7 +30,9 @@ public record JvmHistorySample(
     if (snapshot.getPools() != null) {
       for (MemoryPoolSnapshot pool : snapshot.getPools()) {
         String name = pool.name == null ? "" : pool.name.toLowerCase();
-        if (name.contains("old gen") || name.contains("tenured") || name.contains("old generation")) {
+        if (name.contains("old gen")
+            || name.contains("tenured")
+            || name.contains("old generation")) {
           oldGen = pool.used;
           break;
         }

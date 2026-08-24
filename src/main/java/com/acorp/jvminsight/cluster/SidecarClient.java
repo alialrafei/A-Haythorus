@@ -18,11 +18,9 @@ public final class SidecarClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(SidecarClient.class);
 
   private static final ObjectMapper MAPPER =
-    new ObjectMapper()
-        .registerModule(new JavaTimeModule())
-        .configure(
-            DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
-            false);
+      new ObjectMapper()
+          .registerModule(new JavaTimeModule())
+          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private final HttpClient httpClient;
 

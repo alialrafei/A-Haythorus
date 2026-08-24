@@ -8,7 +8,7 @@ public class GcSnapshot {
   public final String name;
   public final long collectionCount;
   public final long collectionTimeMillis;
-  
+
   @JsonCreator
   public GcSnapshot(
       @JsonProperty("name") String name,

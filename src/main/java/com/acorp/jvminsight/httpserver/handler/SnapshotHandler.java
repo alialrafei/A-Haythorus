@@ -1,19 +1,24 @@
 package com.acorp.jvminsight.httpserver.handler;
 
+import com.acorp.jvminsight.cluster.ClusterHeaders;
+import com.acorp.jvminsight.cluster.ClusterSnapshotService;
 import com.acorp.jvminsight.container.dto.AggregatorSnapshot;
 import com.acorp.jvminsight.httpserver.constant.RouteConstants;
 import com.acorp.jvminsight.httpserver.service.SnapshotService;
 import com.acorp.jvminsight.httpserver.util.JsonResponse;
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
-import com.acorp.jvminsight.cluster.ClusterHeaders;
-import com.acorp.jvminsight.cluster.ClusterSnapshotService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import javax.swing.JList;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,106 +26,85 @@ public final class SnapshotHandler implements HttpHandler {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnapshotHandler.class);
   private static final ClusterSnapshotService CLUSTER_SNAPSHOT_SERVICE =
-    new ClusterSnapshotService();
- @Override
-public void handle(HttpExchange exchange) throws IOException {
+      new ClusterSnapshotService();
 
-  if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+  @Override
+  public void handle(HttpExchange exchange) throws IOException {
 
-    JsonResponse.methodNotAllowed(exchange);
-    return;
-  }
+    if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
 
-  String path =
-      normalizePath(exchange.getRequestURI().getPath());
+      JsonResponse.methodNotAllowed(exchange);
+      return;
+    }
 
-  LOGGER.debug(
-      "Handling snapshot API request '{}'.",
-      path);
+    String path = normalizePath(exchange.getRequestURI().getPath());
 
-  try {
+    LOGGER.debug("Handling snapshot API request '{}'.", path);
 
-    /*
-     * /api/v1/snapshot has two modes:
-     *
-     * Public request:
-     *   return local + all discovered peer snapshots.
-     *
-     * Internal sidecar request:
-     *   return ONLY this sidecar's local snapshot.
-     *
-     * The local mode prevents:
-     *
-     * A -> B -> A -> B -> ...
-     */
-    if (RouteConstants.SNAPSHOT.equals(path)) {
+    try {
 
-      if (isLocalOnlyRequest(exchange)) {
+      /*
+       * /api/v1/snapshot has two modes:
+       *
+       * Public request:
+       *   return local + all discovered peer snapshots.
+       *
+       * Internal sidecar request:
+       *   return ONLY this sidecar's local snapshot.
+       *
+       * The local mode prevents:
+       *
+       * A -> B -> A -> B -> ...
+       */
+      if (RouteConstants.SNAPSHOT.equals(path)) {
 
-        LOGGER.debug(
-            "Returning local-only snapshot.");
+        if (isLocalOnlyRequest(exchange)) {
 
-        JsonResponse.ok(
-            exchange,
-            SnapshotService.getSnapshot());
+          LOGGER.debug("Returning local-only snapshot.");
 
-      } else {
+          JsonResponse.ok(exchange, SnapshotService.getSnapshot());
 
-        LOGGER.debug(
-            "Returning cluster snapshot.");
+        } else {
 
-        JsonResponse.ok(
-            exchange,
-            CLUSTER_SNAPSHOT_SERVICE.getSnapshots());
+          LOGGER.debug("Returning cluster snapshot.");
+
+          JsonResponse.ok(exchange, CLUSTER_SNAPSHOT_SERVICE.getSnapshots());
+        }
+
+        return;
       }
 
-      return;
+      /*
+       * Existing JVM resource endpoints are still local
+       * for now.
+       */
+      AggregatorSnapshot snapshot = SnapshotService.getSnapshot();
+
+      if (RouteConstants.JVMS.equals(path)) {
+
+        List<JvmSnapshot> jvms = snapshot.getJvmSnapshots();
+
+        JsonResponse.ok(exchange, jvms == null ? List.of() : jvms);
+
+        return;
+      }
+
+      if (path.startsWith(RouteConstants.JVMS + "/")) {
+
+        handleJvmRoute(exchange, snapshot, path);
+
+        return;
+      }
+
+      JsonResponse.notFound(exchange);
+
+    } catch (Exception ex) {
+
+      LOGGER.error("Failed to process request '{}'.", path, ex);
+
+      JsonResponse.internalServerError(exchange, "Failed to process snapshot request.");
     }
-
-    /*
-     * Existing JVM resource endpoints are still local
-     * for now.
-     */
-    AggregatorSnapshot snapshot =
-        SnapshotService.getSnapshot();
-
-    if (RouteConstants.JVMS.equals(path)) {
-
-      List<JvmSnapshot> jvms =
-          snapshot.getJvmSnapshots();
-
-      JsonResponse.ok(
-          exchange,
-          jvms == null ? List.of() : jvms);
-
-      return;
-    }
-
-    if (path.startsWith(
-        RouteConstants.JVMS + "/")) {
-
-      handleJvmRoute(
-          exchange,
-          snapshot,
-          path);
-
-      return;
-    }
-
-    JsonResponse.notFound(exchange);
-
-  } catch (Exception ex) {
-
-    LOGGER.error(
-        "Failed to process request '{}'.",
-        path,
-        ex);
-
-    JsonResponse.internalServerError(
-        exchange,
-        "Failed to process snapshot request.");
   }
-}
 
   private void handleJvmRoute(
       HttpExchange exchange, AggregatorSnapshot aggregatorSnapshot, String path)
@@ -201,6 +185,7 @@ public void handle(HttpExchange exchange) throws IOException {
       case RouteConstants.DEADLOCKS -> handleDeadlocks(exchange, snapshot);
 
       case RouteConstants.TIMESTAMP -> handleTimestamp(exchange, snapshot);
+      case RouteConstants.JVM_HISTORY -> handleHistory(exchange, SnapshotService.getJvmHistory(snapshot.getPid()), snapshot.getPid());
 
       default -> JsonResponse.notFound(exchange, "Unknown JVM resource: " + resource);
     }
@@ -272,15 +257,20 @@ public void handle(HttpExchange exchange) throws IOException {
 
     return path;
   }
-  private boolean isLocalOnlyRequest(
-    HttpExchange exchange) {
 
-  String scope =
-      exchange
-          .getRequestHeaders()
-          .getFirst(ClusterHeaders.SCOPE);
+  private boolean isLocalOnlyRequest(HttpExchange exchange) {
 
-  return ClusterHeaders.LOCAL.equalsIgnoreCase(
-      scope);
-}
+    String scope = exchange.getRequestHeaders().getFirst(ClusterHeaders.SCOPE);
+
+    return ClusterHeaders.LOCAL.equalsIgnoreCase(scope);
+  }
+  private void handleHistory(HttpExchange exchange, List<JvmHistorySample> history, long pid) throws IOException {
+
+    Map<String, Object> response = new LinkedHashMap<>();
+    response.put("pid", pid);
+    response.put("timestamp", Instant.now());
+    response.put("history", history);
+
+    JsonResponse.ok(exchange, response);
+  }
 }

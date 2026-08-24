@@ -33,10 +33,7 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
   private static final Path NAMESPACE_PATH = SERVICE_ACCOUNT_DIR.resolve("namespace");
 
   private static final ObjectMapper MAPPER =
-    new ObjectMapper()
-        .configure(
-            DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
-            false);
+      new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   private final HttpClient httpClient;
 

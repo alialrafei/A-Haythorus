@@ -20,7 +20,8 @@ public final class HistoricalLeakAnalyzer {
   private static final long WINDOW_SECONDS =
       Math.max(10L, ConfigLoader.getLong("leak.window.seconds", 60L));
 
-  private static final double ALPHA = validatedAlpha(ConfigLoader.getDouble("leak.ewma.alpha", 0.35));
+  private static final double ALPHA =
+      validatedAlpha(ConfigLoader.getDouble("leak.ewma.alpha", 0.35));
   private static final double HISTORICAL_WEIGHT = 1.0 - ALPHA;
 
   private HistoricalLeakAnalyzer() {}
@@ -142,13 +143,7 @@ public final class HistoricalLeakAnalyzer {
     double netGrowthPercentage = first <= 0 ? 0.0 : ((double) (last - first) / first) * 100.0;
 
     return new Trend(
-        first,
-        last,
-        last - first,
-        positiveGrowth,
-        reclaimed,
-        persistence,
-        netGrowthPercentage);
+        first, last, last - first, positiveGrowth, reclaimed, persistence, netGrowthPercentage);
   }
 
   private static int heapEvidence(Trend trend, List<String> reasons) {
@@ -161,8 +156,7 @@ public final class HistoricalLeakAnalyzer {
     reasons.add(
         String.format(
             "Heap retained %.2f MB across the window; %.0f%% of intervals moved upward.",
-            trend.netGrowth() / 1024.0 / 1024.0,
-            trend.persistence() * 100.0));
+            trend.netGrowth() / 1024.0 / 1024.0, trend.persistence() * 100.0));
     return persistencePoints + growthPoints;
   }
 
@@ -180,8 +174,7 @@ public final class HistoricalLeakAnalyzer {
     return persistencePoints + growthPoints;
   }
 
-  private static int gcReclaimEvidence(
-      Trend heapTrend, long gcCollections, List<String> reasons) {
+  private static int gcReclaimEvidence(Trend heapTrend, long gcCollections, List<String> reasons) {
     if (gcCollections <= 0 || !heapTrend.available() || heapTrend.positiveGrowth() <= 0) return 0;
 
     double reclaimRatio =
@@ -193,8 +186,7 @@ public final class HistoricalLeakAnalyzer {
       reasons.add(
           String.format(
               "%d GC collection(s) occurred while only %.0f%% of observed positive heap growth was reclaimed.",
-              gcCollections,
-              reclaimRatio * 100.0));
+              gcCollections, reclaimRatio * 100.0));
     }
     return score;
   }
@@ -282,7 +274,8 @@ public final class HistoricalLeakAnalyzer {
 
   private static double validatedAlpha(double alpha) {
     if (alpha <= 0.0 || alpha > 1.0) {
-      throw new IllegalStateException("Configuration 'leak.ewma.alpha' must be in the range (0, 1].");
+      throw new IllegalStateException(
+          "Configuration 'leak.ewma.alpha' must be in the range (0, 1].");
     }
     return alpha;
   }

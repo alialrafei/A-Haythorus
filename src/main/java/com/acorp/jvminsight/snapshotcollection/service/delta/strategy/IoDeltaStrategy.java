@@ -22,14 +22,14 @@ public final class IoDeltaStrategy implements DeltaComputationStrategy {
 
     long readCharactersDelta =
         Math.max(
-            0L,
-            current.getProcessIo().readCharacters() - previous.getProcessIo().readCharacters());
+            0L, current.getProcessIo().readCharacters() - previous.getProcessIo().readCharacters());
     long writeCharactersDelta =
         Math.max(
             0L,
             current.getProcessIo().writeCharacters() - previous.getProcessIo().writeCharacters());
     long readSyscallsDelta =
-        Math.max(0L, current.getProcessIo().readSyscalls() - previous.getProcessIo().readSyscalls());
+        Math.max(
+            0L, current.getProcessIo().readSyscalls() - previous.getProcessIo().readSyscalls());
     long writeSyscallsDelta =
         Math.max(
             0L, current.getProcessIo().writeSyscalls() - previous.getProcessIo().writeSyscalls());
