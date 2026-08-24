@@ -3,21 +3,11 @@ package com.acorp.jvminsight.snapshotcollection.service.delta.strategy;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.DeltaComputationStrategy;
+import com.acorp.jvminsight.util.GrowthCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Computes thread-related deltas between two snapshots.
- *
- * <p>Calculates:
- *
- * <ul>
- *   <li>Thread count growth
- *   <li>Deadlock count growth
- * </ul>
- *
- * Positive values indicate increasing thread activity.
- */
+/** Computes thread and deadlock movement between two snapshots. */
 public final class ThreadDeltaStrategy implements DeltaComputationStrategy {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ThreadDeltaStrategy.class);
@@ -25,22 +15,27 @@ public final class ThreadDeltaStrategy implements DeltaComputationStrategy {
   @Override
   public void compute(JvmSnapshot previous, JvmSnapshot current, JvmDeltaSnapshot delta) {
 
-    long threadDelta = current.getThreadCount() - previous.getThreadCount();
+    long previousThreads = previous.getThreadCount();
+    long currentThreads = current.getThreadCount();
 
-    delta.setThreadDelta(threadDelta);
+    delta.setPreviousThreadCount(previousThreads);
+    delta.setCurrentThreadCount(currentThreads);
+    delta.setThreadDelta(currentThreads - previousThreads);
+    delta.setThreadGrowthPercentage(
+        GrowthCalculator.percentageGrowth(previousThreads, currentThreads));
 
     int previousDeadlocks = previous.getDeadlocks() == null ? 0 : previous.getDeadlocks().length;
-
     int currentDeadlocks = current.getDeadlocks() == null ? 0 : current.getDeadlocks().length;
 
-    int deadlockDelta = currentDeadlocks - previousDeadlocks;
+    delta.setCurrentDeadlockCount(currentDeadlocks);
+    delta.setDeadlockDelta(currentDeadlocks - previousDeadlocks);
 
-    delta.setDeadlockDelta(deadlockDelta);
+    LOGGER.trace(
+        "Computed thread delta={} deadlock delta={}",
+        delta.getThreadDelta(),
+        delta.getDeadlockDelta());
 
-    LOGGER.trace("Computed thread delta={} deadlock delta={}", threadDelta, deadlockDelta);
-
-    if (deadlockDelta > 0) {
-
+    if (delta.getDeadlockDelta() > 0) {
       LOGGER.warn("Deadlock count increased from {} to {}", previousDeadlocks, currentDeadlocks);
     }
   }
