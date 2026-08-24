@@ -83,6 +83,23 @@ export interface RawThreadInfo {
   [key: string]: unknown;
 }
 
+export interface ProcessCpuSnapshot {
+  processCpuTimeNanos: number;
+  processCpuLoad: number;
+  systemCpuLoad: number;
+  availableProcessors: number;
+}
+
+export interface ProcessIoSnapshot {
+  readCharacters: number;
+  writeCharacters: number;
+  readSyscalls: number;
+  writeSyscalls: number;
+  readBytes: number;
+  writeBytes: number;
+  cancelledWriteBytes: number;
+}
+
 export interface CpuThreadConsumer {
   threadId: number;
   threadName: string | null;
@@ -90,7 +107,24 @@ export interface CpuThreadConsumer {
 }
 
 export interface CpuDeltaSnapshot {
+  processCpuTimeDeltaNanos: number;
+  processCpuUtilizationPercentage: number;
+  processCpuLoad: number;
+  systemCpuLoad: number;
+  availableProcessors: number;
   topConsumers: CpuThreadConsumer[];
+}
+
+export interface IoDeltaSnapshot {
+  readCharactersDelta: number;
+  writeCharactersDelta: number;
+  readSyscallsDelta: number;
+  writeSyscallsDelta: number;
+  readBytesDelta: number;
+  writeBytesDelta: number;
+  cancelledWriteBytesDelta: number;
+  readBytesPerSecond: number;
+  writeBytesPerSecond: number;
 }
 
 export interface GcDeltaSnapshot {
@@ -146,11 +180,15 @@ export interface JvmDeltaSnapshot {
   previousHeapUsed: number;
   currentHeapUsed: number;
   heapDelta: number;
+  positiveHeapDelta: number;
+  reclaimedHeapBytes: number;
   heapGrowthPercentage: number;
 
   previousNonHeapUsed: number;
   currentNonHeapUsed: number;
   nonHeapDelta: number;
+  positiveNonHeapDelta: number;
+  reclaimedNonHeapBytes: number;
   nonHeapGrowthPercentage: number;
 
   previousThreadCount: number;
@@ -167,7 +205,13 @@ export interface JvmDeltaSnapshot {
 
   leakSeverity: string | null;
   cpuDelta: CpuDeltaSnapshot | null;
+  ioDelta: IoDeltaSnapshot | null;
+  instantaneousLeakScore: number;
   leakScore: number;
+  heapGrowthPersistence: number;
+  windowHeapGrowthBytes: number;
+  windowGcCollections: number;
+  historicalWeight: number;
 
   leakReasons: string[];
   recommendations: Recommendation[];
@@ -176,7 +220,7 @@ export interface JvmDeltaSnapshot {
 
 export interface JvmSnapshot {
   pid: number;
-  threadsInfos: RawThreadInfo[] | null;
+  threadsInfos?: RawThreadInfo[] | null;
   memory: MemorySnapshot | null;
   gc: GcSnapshot[];
   pools: MemoryPoolSnapshot[];
@@ -187,6 +231,8 @@ export interface JvmSnapshot {
   threadCount: number;
   threadCpuTimes: Record<string, number>;
   dumpSnapshot: ThreadDumpSnapshot | null;
+  processCpu: ProcessCpuSnapshot | null;
+  processIo: ProcessIoSnapshot | null;
 }
 
 export interface ThreadCountResponse {
@@ -216,4 +262,9 @@ export interface JvmHistoryPoint {
   nonHeapUsed: number;
   threadCount: number;
   leakScore: number;
+  processCpuUtilizationPercentage: number;
+  processCpuLoad: number;
+  systemCpuLoad: number;
+  readBytesPerSecond: number;
+  writeBytesPerSecond: number;
 }
