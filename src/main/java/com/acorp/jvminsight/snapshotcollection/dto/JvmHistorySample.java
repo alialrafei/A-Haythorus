@@ -14,6 +14,9 @@ public record JvmHistorySample(
     long oldGenerationUsed,
     long threadCount,
     Map<String, Long> gcCollectionCounts,
+    long processCpuTimeNanos,
+    long processReadBytes,
+    long processWriteBytes,
     int leakConfidence) {
 
   public static JvmHistorySample from(JvmSnapshot snapshot) {
@@ -38,6 +41,10 @@ public record JvmHistorySample(
       }
     }
 
+    long processCpuTimeNanos =
+        snapshot.getProcessCpu() == null ? 0 : snapshot.getProcessCpu().processCpuTimeNanos();
+    long readBytes = snapshot.getProcessIo() == null ? 0 : snapshot.getProcessIo().readBytes();
+    long writeBytes = snapshot.getProcessIo() == null ? 0 : snapshot.getProcessIo().writeBytes();
     int confidence = snapshot.getDelta() == null ? 0 : snapshot.getDelta().getLeakScore();
 
     return new JvmHistorySample(
@@ -47,6 +54,9 @@ public record JvmHistorySample(
         oldGen,
         snapshot.getThreadCount(),
         Map.copyOf(gcCounts),
+        processCpuTimeNanos,
+        readBytes,
+        writeBytes,
         confidence);
   }
 }
