@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.delta;
 
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.HistogramDelta;
@@ -7,6 +8,8 @@ import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.LeakSeverity;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.Recommendation;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.RecommendationSeverity;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,8 +17,10 @@ import java.util.Map;
 /** History-aware, explainable leak-confidence model. */
 public final class HistoricalLeakAnalyzer {
 
-  private static final int WINDOW_SIZE = 12;
-  private static final double ALPHA = 0.35;
+  private static final long WINDOW_SECONDS =
+      Math.max(10L, ConfigLoader.getLong("leak.window.seconds", 60L));
+
+  private static final double ALPHA = validatedAlpha(ConfigLoader.getDouble("leak.ewma.alpha", 0.35));
   private static final double HISTORICAL_WEIGHT = 1.0 - ALPHA;
 
   private HistoricalLeakAnalyzer() {}
@@ -57,11 +62,16 @@ public final class HistoricalLeakAnalyzer {
 
     int rawEvidence = clamp(heapScore + oldGenScore + gcScore + histogramScore + threadScore);
 
-    double maturity = Math.min(1.0, (window.size() - 1) / 5.0);
+    double maturity = windowMaturity(window);
     int instantaneous = (int) Math.round(rawEvidence * maturity);
 
-    int previousConfidence = retainedHistory.isEmpty() ? 0 : retainedHistory.get(retainedHistory.size() - 1).leakConfidence();
-    int confidence = clamp((int) Math.round(ALPHA * instantaneous + HISTORICAL_WEIGHT * previousConfidence));
+    int previousConfidence =
+        retainedHistory.isEmpty()
+            ? 0
+            : retainedHistory.get(retainedHistory.size() - 1).leakConfidence();
+
+    int confidence =
+        clamp((int) Math.round(ALPHA * instantaneous + HISTORICAL_WEIGHT * previousConfidence));
 
     delta.setInstantaneousLeakScore(instantaneous);
     delta.setLeakScore(confidence);
@@ -75,15 +85,40 @@ public final class HistoricalLeakAnalyzer {
     delta.setRecommendations(recommendations);
   }
 
+  /**
+   * Selects samples by elapsed time rather than by a fixed sample count. This keeps the analysis
+   * semantics stable when the collector interval changes.
+   */
   private static List<JvmHistorySample> buildWindow(
       List<JvmHistorySample> retainedHistory, JvmHistorySample current) {
+
+    Instant currentTimestamp = current.timestamp();
+    if (currentTimestamp == null) {
+      List<JvmHistorySample> fallback = new ArrayList<>(retainedHistory);
+      fallback.add(current);
+      return fallback;
+    }
+
+    Instant cutoff = currentTimestamp.minusSeconds(WINDOW_SECONDS);
     List<JvmHistorySample> result = new ArrayList<>();
-    int from = Math.max(0, retainedHistory.size() - (WINDOW_SIZE - 1));
-    result.addAll(retainedHistory.subList(from, retainedHistory.size()));
+
+    for (JvmHistorySample sample : retainedHistory) {
+      Instant timestamp = sample.timestamp();
+      if (timestamp != null && !timestamp.isBefore(cutoff)) {
+        result.add(sample);
+      }
+    }
+
     result.add(current);
     return result;
   }
 
+  /**
+   * Persistence is the fraction of observed intervals whose movement is positive.
+   *
+   * <p>For values [100, 104, 108, 111], all three deltas are positive, so persistence = 3/3 = 1.
+   * For [100, 110, 96, 108], only two of three deltas are positive, so persistence = 2/3.
+   */
   private static Trend trend(List<Long> values) {
     if (values.size() < 2) return Trend.EMPTY;
 
@@ -205,6 +240,24 @@ public final class HistoricalLeakAnalyzer {
     return total;
   }
 
+  /**
+   * Confidence should grow as the time window fills, independent of the configured sample interval.
+   */
+  private static double windowMaturity(List<JvmHistorySample> window) {
+    if (window.size() < 2) {
+      return 0.0;
+    }
+
+    Instant first = window.get(0).timestamp();
+    Instant last = window.get(window.size() - 1).timestamp();
+    if (first == null || last == null || !last.isAfter(first)) {
+      return Math.min(1.0, (window.size() - 1) / 5.0);
+    }
+
+    double observedSeconds = Duration.between(first, last).toMillis() / 1000.0;
+    return Math.min(1.0, observedSeconds / WINDOW_SECONDS);
+  }
+
   private static Recommendation memoryRecommendation(int confidence, List<String> reasons) {
     Recommendation recommendation = new Recommendation();
     recommendation.setSeverity(
@@ -225,6 +278,13 @@ public final class HistoricalLeakAnalyzer {
 
   private static double normalizePositive(double value, double fullScale) {
     return value <= 0 ? 0.0 : Math.min(1.0, value / fullScale);
+  }
+
+  private static double validatedAlpha(double alpha) {
+    if (alpha <= 0.0 || alpha > 1.0) {
+      throw new IllegalStateException("Configuration 'leak.ewma.alpha' must be in the range (0, 1].");
+    }
+    return alpha;
   }
 
   private static int clamp(int value) {
