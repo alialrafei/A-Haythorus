@@ -42,6 +42,8 @@ const MonitoringContext =
 
 function createHistoryPoint(snapshot: JvmSnapshot): JvmHistoryPoint {
   const memory = snapshot.memory;
+  const cpu = snapshot.delta?.cpuDelta;
+  const io = snapshot.delta?.ioDelta;
 
   return {
     timestamp: toEpochMillis(snapshot.timestamp),
@@ -51,6 +53,12 @@ function createHistoryPoint(snapshot: JvmSnapshot): JvmHistoryPoint {
     nonHeapUsed: memory?.nonHeapUsed ?? 0,
     threadCount: snapshot.threadCount ?? 0,
     leakScore: snapshot.delta?.leakScore ?? 0,
+    processCpuUtilizationPercentage:
+      cpu?.processCpuUtilizationPercentage ?? 0,
+    processCpuLoad: cpu?.processCpuLoad ?? 0,
+    systemCpuLoad: cpu?.systemCpuLoad ?? 0,
+    readBytesPerSecond: io?.readBytesPerSecond ?? 0,
+    writeBytesPerSecond: io?.writeBytesPerSecond ?? 0,
   };
 }
 

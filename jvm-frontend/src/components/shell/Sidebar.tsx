@@ -10,6 +10,7 @@ import { getJvmHealth } from '../../utils/health';
 export type PageId =
   | 'overview'
   | 'pods'
+  | 'resources'
   | 'problems'
   | 'jvm';
 
@@ -29,6 +30,11 @@ const navItems: NavItem[] = [
     id: 'pods',
     label: 'Pods & JVMs',
     icon: 'applications',
+  },
+  {
+    id: 'resources',
+    label: 'Resources',
+    icon: 'pulse',
   },
   {
     id: 'problems',
