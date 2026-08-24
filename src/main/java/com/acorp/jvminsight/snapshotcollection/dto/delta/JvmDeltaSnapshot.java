@@ -38,6 +38,7 @@ public class JvmDeltaSnapshot {
 
   private LeakSeverity leakSeverity;
   private CpuDeltaSnapshot cpuDelta;
+  private IoDeltaSnapshot ioDelta;
 
   /** Evidence score calculated from the current historical analysis window before smoothing. */
   private int instantaneousLeakScore;
