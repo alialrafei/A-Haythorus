@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection;
 
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import java.util.ArrayDeque;
@@ -17,8 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class JvmDataStore {
 
-  /** 120 samples at a 5-second interval is roughly 10 minutes of history. */
-  private static final int MAX_HISTORY_SAMPLES = 120;
+  private static final int MAX_HISTORY_SAMPLES =
+      Math.max(2, ConfigLoader.getInt("history.max.samples", 120));
 
   private static final Map<Long, JvmSnapshot> SNAPSHOTS = new ConcurrentHashMap<>();
   private static final Map<Long, Deque<JvmHistorySample>> HISTORY = new ConcurrentHashMap<>();
