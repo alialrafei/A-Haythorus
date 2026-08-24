@@ -1,8 +1,8 @@
 # A-Haythorus JVM Leakage Scoring Model
 
-This document defines the memory-retention and leakage-confidence model used by A-Haythorus.
+This document defines the memory-retention and leak-confidence model used by A-Haythorus.
 
-The central idea is simple:
+The core principle is:
 
 > A single delta tells us movement. A leak is a behavior across time.
 
@@ -10,88 +10,104 @@ A-Haythorus therefore separates **pairwise delta measurement** from **historical
 
 ---
 
-## 1. Why the old two-snapshot model was insufficient
+## 1. Configuration model
 
-The original model compared only two snapshots:
+The sampling resolution, retained history capacity, analysis window, and temporal smoothing are independent configuration knobs:
 
-```text
-S(t-1) ---- 5 seconds ----> S(t)
+```properties
+collector.interval.ms=5000
+history.max.samples=120
+leak.window.seconds=60
+leak.ewma.alpha=0.35
 ```
 
-For heap usage this produced:
+Environment-variable equivalents are:
 
 ```text
-heapDelta = heap(t) - heap(t-1)
+AH_COLLECTOR_INTERVAL_MS
+AH_HISTORY_MAX_SAMPLES
+AH_LEAK_WINDOW_SECONDS
+AH_LEAK_EWMA_ALPHA
 ```
 
-That value is useful, but it cannot answer whether memory is leaking.
-
-For example, this JVM:
+Their roles are different:
 
 ```text
-40 MB -> 43 MB -> 46 MB -> 49 MB -> 52 MB -> 55 MB
+collector.interval.ms
+    -> how often the JVM is sampled
+
+history.max.samples
+    -> hard memory bound for retained lightweight history
+
+leak.window.seconds
+    -> how far back the leak analyzer looks in time
+
+leak.ewma.alpha
+    -> how strongly the newest evidence influences confidence
 ```
 
-has only small local changes, but the persistent upward movement is suspicious.
-
-A healthy JVM can show large pairwise growth while still reclaiming memory:
+The important relationship is:
 
 ```text
-100 MB -> 160 MB -> 92 MB -> 155 MB -> 95 MB
+maximum retained duration ~= collector interval * history capacity
 ```
 
-The positive allocation bursts are not, by themselves, evidence of a leak because the JVM repeatedly returns to a similar baseline.
-
-Therefore:
-
-```text
-pairwise delta != leak diagnosis
-```
+but leak analysis itself is **time based**, not sample-count based. If the collector changes from 5-second samples to 2-second samples, a 60-second leak window still means 60 seconds; it simply contains more observations.
 
 ---
 
-## 2. Data model
+## 2. Data model and memory bound
 
-`JvmDataStore` keeps two views of each PID:
-
-```text
-latest snapshot
-    +
-bounded history
-```
-
-The history is a per-PID ring-like bounded deque.
-
-Current configuration:
+`JvmDataStore` keeps two views for each PID:
 
 ```text
-sample interval      = 5 seconds
-maximum history      = 120 snapshots
-retained duration    ~= 10 minutes
+latest full JvmSnapshot
+        +
+bounded lightweight history
 ```
 
-Leak analysis does not need to scan all ten minutes on every sample. It currently analyzes the most recent 12 samples:
+The latest snapshot contains the rich monitoring data used by the API/UI.
+
+History stores only lightweight `JvmHistorySample` records containing values required for trend analysis, such as:
 
 ```text
-analysis window      = 12 snapshots
-window duration      ~= 60 seconds
+timestamp
+heap used
+non-heap used
+old-generation used
+thread count
+GC collection counters
+previous leak confidence
 ```
 
-The longer datastore history remains available for future UI/backend history endpoints and longer-term analysis.
+It deliberately does **not** retain a full thread dump or class histogram for every historical sample.
+
+When the history exceeds `history.max.samples`, the oldest sample is removed:
+
+```text
+append newest sample
+        |
+        v
+size > configured maximum?
+        |
+       yes
+        v
+remove oldest sample
+```
+
+This prevents the monitoring sidecar from developing its own unbounded memory growth.
 
 ---
 
 ## 3. Layer 1: pairwise delta
 
-For every new snapshot `S_t`, the immediately previous snapshot is `S_(t-1)`.
-
-### Signed heap movement
+For each new snapshot `S_t` and immediately previous snapshot `S_(t-1)`:
 
 ```text
 Delta_heap(t) = heap(t) - heap(t-1)
 ```
 
-The signed delta is retained because direction matters.
+The signed value is retained because direction matters.
 
 ### Positive growth
 
@@ -99,26 +115,18 @@ The signed delta is retained because direction matters.
 positiveHeapDelta(t) = max(Delta_heap(t), 0)
 ```
 
-This tells us how many bytes were added during the interval.
-
-### Reclaimed bytes
+### Reclaimed movement
 
 ```text
 reclaimedHeapBytes(t) = max(-Delta_heap(t), 0)
 ```
 
-This tells us how many bytes disappeared during the interval.
-
-The same separation is applied to non-heap memory.
-
-This is important because:
+Therefore:
 
 ```text
-+30 MB  -> growth / possible retention evidence
--30 MB  -> reclamation evidence
++30 MB -> growth / possible retention evidence
+-30 MB -> reclamation evidence
 ```
-
-They should not be treated as equivalent magnitudes.
 
 Pairwise delta answers:
 
@@ -126,79 +134,157 @@ Pairwise delta answers:
 
 It does not answer:
 
-> Is the JVM leaking?
+> Is this JVM leaking over time?
 
 ---
 
-## 4. Layer 2: historical trend features
+## 4. Time-based historical analysis window
 
-Let the current analysis window contain heap observations:
+Let the current sample time be `t_now` and the configured analysis duration be `W` seconds.
+
+A-Haythorus selects samples satisfying:
+
+```text
+timestamp >= t_now - W
+```
+
+For the default:
+
+```text
+W = 60 seconds
+```
+
+With 5-second sampling this is roughly 12 samples.
+
+With 2-second sampling this is roughly 30 samples.
+
+The semantic window remains the same: **the most recent 60 seconds of JVM behavior**.
+
+---
+
+## 5. Persistence
+
+Persistence measures how consistently a metric moves in the suspicious direction across the analysis window.
+
+Suppose the heap observations are:
 
 ```text
 H_0, H_1, ..., H_n
 ```
 
-where `H_i` is heap-used bytes for snapshot `i`.
-
-For every interval:
+For each interval:
 
 ```text
 d_i = H_i - H_(i-1)
 ```
 
-### 4.1 Positive-growth persistence
-
-Count the number of intervals with positive heap movement:
+Count the positive intervals:
 
 ```text
 N_positive = count(d_i > 0)
 ```
 
-Then:
+Then heap-growth persistence is:
 
 ```text
 P_heap = N_positive / N_intervals
 ```
 
-`P_heap` is in `[0, 1]`.
-
-Examples:
+where:
 
 ```text
-100 -> 103 -> 106 -> 109 -> 112
+0 <= P_heap <= 1
+```
 
-movements: + + + +
+### Example: sustained upward movement
+
+```text
+100 -> 104 -> 108 -> 111 -> 115
+```
+
+Movements:
+
+```text
++4, +4, +3, +4
+```
+
+All four intervals are positive:
+
+```text
 P_heap = 4 / 4 = 1.0
 ```
 
-versus:
+This is highly persistent upward movement.
+
+### Example: allocation/reclaim oscillation
 
 ```text
-100 -> 115 -> 96 -> 112 -> 98
+100 -> 110 -> 96 -> 108 -> 95
+```
 
-movements: + - + -
+Movements:
+
+```text
++10, -14, +12, -13
+```
+
+Only two of four intervals are positive:
+
+```text
 P_heap = 2 / 4 = 0.5
 ```
 
-The first pattern is much more consistent with sustained retention.
+This is much less persistent and is more consistent with allocation followed by reclamation.
 
-### 4.2 Net window growth
+### Why persistence matters
+
+Net growth by itself is not enough. Two JVMs can finish at similar heap sizes while having very different behavior.
+
+A persistent pattern:
+
+```text
+100 -> 105 -> 110 -> 115 -> 120
+```
+
+is more suspicious than:
+
+```text
+100 -> 125 -> 95 -> 123 -> 120
+```
+
+because the first JVM repeatedly moves upward without meaningful recovery.
+
+Persistence therefore answers:
+
+> How consistently has the JVM moved in the suspicious direction?
+
+It does **not** measure the magnitude of growth. Magnitude is handled separately.
+
+---
+
+## 6. Net window growth
+
+Across the selected time window:
 
 ```text
 G_heap = H_n - H_0
 ```
 
-and percentage growth:
+and percentage growth is:
 
 ```text
 G_heap_pct = ((H_n - H_0) / H_0) * 100
 ```
 
-This measures the actual movement of the baseline across the entire window instead of only the latest five seconds.
+This measures baseline movement over the entire recent time window rather than only the latest pair of samples.
 
-### 4.3 Positive growth and reclamation totals
+A-Haythorus combines net growth with persistence because neither is sufficient alone.
 
-Across the window:
+---
+
+## 7. Positive growth and reclaimed movement across the window
+
+Across all pairwise movements:
 
 ```text
 A_heap = sum(max(d_i, 0))
@@ -208,162 +294,96 @@ R_heap = sum(max(-d_i, 0))
 where:
 
 ```text
-A_heap = observed positive allocation/growth movement
-R_heap = observed reclaimed movement
+A_heap = total observed positive heap movement
+R_heap = total observed downward heap movement
 ```
 
-These totals allow GC effectiveness to be represented explicitly.
+These values describe what the sampled heap did. They are not direct proof that every negative movement came from GC.
 
 ---
 
-## 5. Garbage-collection reclaim evidence
+## 8. GC-related reclaim evidence
 
-GC activity is measured across the same historical window.
+GC collection counters are compared across the same time window.
 
 Let:
 
 ```text
-C_gc = total increase in GC collection counters across collectors
+C_gc = total increase in GC collection counters
 ```
 
-If there are no GC collections, we do not claim GC failed to reclaim memory.
+If no GC collection occurred, A-Haythorus does not claim that GC failed to reclaim memory.
 
-When GC has run and positive heap growth exists, calculate:
+When GC has run and positive heap movement exists, the current heuristic computes:
 
 ```text
 reclaimRatio = min(1, R_heap / A_heap)
-```
-
-Then:
-
-```text
 retentionRatio = 1 - reclaimRatio
 ```
 
-Interpretation:
-
-```text
-reclaimRatio ~= 1.0
-```
-
-means most observed growth was later reclaimed.
-
-```text
-reclaimRatio ~= 0.0
-```
-
-means observed positive growth was largely retained.
-
-The GC evidence score also includes heap-growth persistence:
+and combines it with persistence:
 
 ```text
 GC_score = 20 * retentionRatio * P_heap
 ```
 
-This prevents a single allocation burst from being treated like persistent retention.
+This is an A-Haythorus heuristic, not a standardized JVM formula. It should be interpreted as sampled retention evidence.
 
-### Healthy pattern
-
-```text
-100 -> 150 -> 92 -> 145 -> 95
-```
-
-The JVM allocates heavily but repeatedly reclaims memory.
-
-### Suspicious pattern
-
-```text
-100 -> 150 -> 125 -> 180 -> 155 -> 210
-```
-
-GC runs, but the floor keeps rising.
-
-This rising post-reclamation baseline is much stronger leak evidence than raw heap growth alone.
+A future stronger model should correlate heap floors specifically with intervals in which GC counters increased and eventually track post-major-GC baselines directly.
 
 ---
 
-## 6. Old-generation trend
+## 9. Old-generation trend
 
-Heap growth alone can be noisy because young-generation allocations are expected.
+Heap usage contains expected young-generation allocation noise. Long-lived objects accumulating in old generation are stronger retention evidence.
 
-Objects surviving GC and accumulating in old generation are stronger retention evidence.
-
-A-Haythorus applies the same trend model to the detected old-generation memory pool:
+A-Haythorus applies the same trend concepts to old-generation usage:
 
 ```text
 OldGen_0, OldGen_1, ..., OldGen_n
 ```
 
-and calculates:
+and measures net old-generation growth, old-generation growth percentage, and positive-growth persistence.
 
-- old-generation net growth
-- old-generation growth percentage
-- old-generation positive-growth persistence
-
-The current detector recognizes pool names containing values such as:
-
-```text
-Old Gen
-Tenured
-old generation
-```
-
-The old-generation feature contributes up to 25 points to current leak evidence.
+This feature contributes up to 25 points to current leak evidence.
 
 ---
 
-## 7. Histogram evidence
+## 10. Histogram evidence
 
-Class histogram growth is supporting evidence.
+Histogram growth is supporting evidence.
 
-If the latest histogram delta contains a class whose retained bytes are increasing:
+If a class has:
 
 ```text
 bytesDelta > 0
 ```
 
-then its relative growth is:
+its latest relative growth is approximately:
 
 ```text
 classGrowthPct = bytesDelta / previousBytes * 100
 ```
 
-This contributes up to 15 points.
-
-For a deliberate leak such as:
-
-```java
-static final List<byte[]> HEAP = new ArrayList<>();
-HEAP.add(new byte[1024 * 1024]);
-```
-
-we expect byte-array (`[B`) retained bytes to trend upward.
-
-Histogram evidence is intentionally not sufficient on its own to classify a leak. It corroborates the broader trend.
+Histogram evidence contributes up to 15 points and is intentionally not sufficient on its own to classify a leak.
 
 ---
 
-## 8. Thread accumulation evidence
+## 11. Thread accumulation evidence
 
-A JVM can also leak resources through uncontrolled thread creation.
-
-Across the analysis window:
+Across the same time window:
 
 ```text
 threadGrowth = threadCount_last - threadCount_first
 ```
 
-Positive persistent thread growth contributes up to 10 points.
-
-This is deliberately a smaller weight than heap/old-generation/GC evidence because thread growth is not equivalent to heap retention.
+Positive thread growth contributes up to 10 points. This is a smaller weight because thread accumulation is not equivalent to heap retention.
 
 ---
 
-## 9. Instantaneous historical evidence score
+## 12. Current historical evidence score
 
-The current window produces multiple independent features.
-
-Maximum contributions are:
+The current time window produces independent evidence components:
 
 ```text
 heap trend and persistence        30
@@ -387,26 +407,28 @@ with:
 0 <= E_t <= 100
 ```
 
-This is called:
-
-```text
-instantaneousLeakScore
-```
-
-Despite the name, it is not based on only one pair of points. It is the evidence extracted from the current historical window before temporal confidence smoothing.
+This value is exposed as `instantaneousLeakScore`: current-window evidence before historical smoothing.
 
 ---
 
-## 10. Window maturity
+## 13. Time-based window maturity
 
-Two samples are not enough to establish a stable trend.
+A newly started JVM should not reach high confidence before enough elapsed time has been observed.
 
-A-Haythorus therefore scales evidence while the analysis window is young.
-
-Current maturity function:
+Maturity is therefore based on elapsed window coverage:
 
 ```text
-maturity = min(1, intervals / 5)
+observedDuration = timestamp_last - timestamp_first
+maturity = min(1, observedDuration / configuredWindowDuration)
+```
+
+For a 60-second configured window:
+
+```text
+15 seconds observed -> 0.25 maturity
+30 seconds observed -> 0.50 maturity
+45 seconds observed -> 0.75 maturity
+60+ seconds         -> 1.00 maturity
 ```
 
 Then:
@@ -415,111 +437,44 @@ Then:
 E_t_matured = E_t * maturity
 ```
 
-Examples:
-
-```text
-2 snapshots -> 1 interval  -> 20% maturity
-3 snapshots -> 2 intervals -> 40% maturity
-4 snapshots -> 3 intervals -> 60% maturity
-5 snapshots -> 4 intervals -> 80% maturity
-6+ snapshots              -> 100% maturity
-```
-
-This prevents the system from declaring high-confidence leakage immediately after startup.
+This remains correct when the sampling interval changes.
 
 ---
 
-## 11. Historical confidence with exponentially weighted memory
+## 14. Historical confidence with exponentially weighted memory
 
-A persistent leak should gain confidence over time. A temporary burst should decay.
+A persistent leak should gain confidence over time, while transient evidence should decay.
 
-The user's proposed model can be written as:
+The weighted model can be written as:
 
 ```text
 L_t = c_0 E_t + c_1 E_(t-1) + c_2 E_(t-2) + ...
 ```
 
-where recent evidence receives larger weight.
-
-A-Haythorus implements the equivalent recursive exponentially weighted moving average (EWMA):
+A-Haythorus implements this recursively with EWMA:
 
 ```text
 L_t = alpha * E_t + (1 - alpha) * L_(t-1)
 ```
 
-Current value:
+Default:
 
 ```text
 alpha = 0.35
 historical weight = 0.65
 ```
 
-So:
+so:
 
 ```text
-L_t = 0.35 * E_t + 0.65 * L_(t-1)
+L_t = 0.35 E_t + 0.65 L_(t-1)
 ```
 
-Expanding recursively gives:
-
-```text
-L_t
- = 0.35 E_t
- + 0.35(0.65) E_(t-1)
- + 0.35(0.65^2) E_(t-2)
- + ...
-```
-
-Therefore the effective historical coefficients are:
-
-```text
-current evidence       0.3500
-1 sample ago           0.2275
-2 samples ago          0.1479
-3 samples ago          0.0961
-4 samples ago          0.0625
-...
-```
-
-Older evidence never disappears abruptly; its influence decays exponentially.
-
-This value is exposed as:
-
-```text
-leakScore
-```
-
-and should be interpreted as **leak confidence**, not proof of a leak.
+This value is exposed as `leakScore` and should be interpreted as leak confidence, not proof of a leak.
 
 ---
 
-## 12. Why EWMA is preferable to a plain average
-
-A plain average gives every point equal weight:
-
-```text
-mean = (E_1 + E_2 + ... + E_n) / n
-```
-
-That creates two problems:
-
-1. Ancient behavior can dominate current state for too long.
-2. A JVM that recovered from a transient event can remain marked suspicious because old high scores remain equally important.
-
-EWMA gives the system memory while still allowing recovery:
-
-```text
-persistent evidence -> confidence rises
-vanishing evidence   -> confidence decays
-```
-
-This matches the semantics of runtime monitoring better than an unweighted mean.
-
----
-
-## 13. Severity mapping
-
-The historical confidence is mapped to severity:
+## 15. Severity mapping
 
 ```text
 0  - 29   LOW
@@ -528,206 +483,60 @@ The historical confidence is mapped to severity:
 80 - 100  CRITICAL
 ```
 
-The threshold is applied to the smoothed confidence `L_t`, not directly to one five-second delta.
+Severity is applied to historical leak confidence rather than one local interval.
 
 ---
 
-## 14. Example: steady leak
-
-Suppose heap history is:
-
-```text
-40
-43
-46
-49
-52
-55 MB
-```
-
-Then:
-
-```text
-positive persistence = 5 / 5 = 1.0
-net growth            = +15 MB
-reclamation           ~= 0
-```
-
-If GC also ran during this window and the old generation increased, the current evidence becomes high.
-
-The historical confidence then increases gradually:
-
-```text
-sample   evidence   previous confidence   new confidence
-1          10               0                  10
-2          25              10                  15
-3          45              15                  26
-4          65              26                  40
-5          80              40                  54
-6          90              54                  67
-```
-
-The exact numbers depend on observed signals, but the intended behavior is:
-
-```text
-persistent evidence => stronger confidence over time
-```
-
----
-
-## 15. Example: temporary allocation burst
-
-Consider:
-
-```text
-100 -> 180 -> 105 -> 175 -> 102
-```
-
-Heap repeatedly grows, but GC/reclamation returns the process close to its original floor.
-
-We observe:
-
-```text
-positive growth: high
-reclaimed bytes: also high
-net window growth: small
-reclaim ratio: high
-persistence: mixed
-```
-
-Therefore the leak evidence remains low or decays after the burst.
-
-This is the behavior the old two-snapshot detector could not distinguish reliably.
-
----
-
-## 16. Delta semantics after this change
-
-The delta object now has two responsibilities, clearly separated by field meaning.
-
-### Latest movement fields
-
-```text
-heapDelta
-positiveHeapDelta
-reclaimedHeapBytes
-heapGrowthPercentage
-
-nonHeapDelta
-positiveNonHeapDelta
-reclaimedNonHeapBytes
-nonHeapGrowthPercentage
-
-threadDelta
-gcDelta
-poolDelta
-histogramDelta
-```
-
-These answer:
-
-> What changed since the previous snapshot?
-
-### Historical analysis fields
-
-```text
-instantaneousLeakScore
-leakScore
-leakSeverity
-heapGrowthPersistence
-windowHeapGrowthBytes
-windowGcCollections
-historicalWeight
-leakReasons
-recommendations
-```
-
-These answer:
-
-> What does the recent behavior imply about persistent retention?
-
----
-
-## 17. Architectural flow
+## 16. Architectural flow
 
 ```text
 Target JVM
    |
-   | JMX / diagnostic commands
    v
 JvmCollector
    |
-   v
-new JvmSnapshot
+   +--> latest full snapshot
+   |        |
+   |        +--> pairwise delta
    |
-   +------------------------------+
-   |                              |
-   v                              v
-pairwise DeltaEngine         JvmDataStore history
-(previous vs current)        last N snapshots
-   |                              |
-   +--------------+---------------+
-                  |
-                  v
-        HistoricalLeakAnalyzer
-                  |
-          +-------+--------+
-          |                |
-          v                v
- current evidence      previous confidence
-        E_t                 L_(t-1)
-          |                |
-          +-------+--------+
-                  |
-                  v
-      L_t = 0.35 E_t + 0.65 L_(t-1)
-                  |
-                  v
-          leakScore / severity
-                  |
-                  v
-             JvmSnapshot
-                  |
-                  v
-             JvmDataStore
-                  |
-                  v
-               REST/UI
+   +--> bounded lightweight history
+             |
+             +--> select samples by leak.window.seconds
+                         |
+                         v
+                    persistence
+                    net growth
+                    reclamation
+                    old-gen trend
+                    GC counters
+                         |
+                         v
+                 current evidence E_t
+                         |
+                         v
+          L_t = alpha E_t + (1-alpha)L_(t-1)
+                         |
+                         v
+              leak confidence / severity
 ```
 
 ---
 
-## 18. Important limitations and next improvements
+## 17. Interpretation and limitations
 
-This model is intentionally explainable and deterministic. It is not intended to be the final statistical detector.
+A-Haythorus reports **leak confidence**, not proof of a leak.
 
-Future improvements should consider:
+The current model is intentionally deterministic and explainable. Important future improvements include post-major-GC baseline detection, GC-event-aligned reclamation, regression slope over heap and old-generation history, noise tolerance, collector-specific GC semantics, slower independent histogram collection, class-level historical retention, process-start identity to guard against PID reuse, and benchmark workloads for known healthy and deliberately leaky JVMs.
 
-- detecting post-major-GC baselines directly rather than inferring reclaim from sample-to-sample movement
-- linear-regression slope over heap and old-generation history
-- confidence intervals/noise tolerance
-- collector-specific GC semantics (G1, ZGC, Shenandoah, Parallel GC)
-- longer and configurable analysis windows
-- slower histogram sampling so expensive diagnostic commands do not block every fast sample
-- class-level historical retention instead of only latest histogram delta
-- process-start identity to prevent PID reuse from joining unrelated histories
-- dedicated lightweight history DTOs for REST/UI instead of retaining full snapshots indefinitely
-- tests that compare known healthy allocation workloads against deterministic leak workloads
-
----
-
-## 19. Interpretation rule
-
-A-Haythorus must present the result as:
+The semantic separation remains:
 
 ```text
-Leak confidence
+pairwise delta
+    = what changed now?
+
+persistence/trend
+    = what behavior is repeating across the recent time window?
+
+leak confidence
+    = how strongly does accumulated historical evidence support retention?
 ```
-
-rather than claiming:
-
-```text
-A leak is proven
-```
-
-Runtime telemetry provides evidence. Heap-dump/reference analysis is still required to establish the exact retained-object cause.
