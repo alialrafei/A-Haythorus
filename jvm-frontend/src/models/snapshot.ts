@@ -176,33 +176,27 @@ export interface Recommendation {
 
 export interface JvmDeltaSnapshot {
   intervalMillis: number;
-
   previousHeapUsed: number;
   currentHeapUsed: number;
   heapDelta: number;
   positiveHeapDelta: number;
   reclaimedHeapBytes: number;
   heapGrowthPercentage: number;
-
   previousNonHeapUsed: number;
   currentNonHeapUsed: number;
   nonHeapDelta: number;
   positiveNonHeapDelta: number;
   reclaimedNonHeapBytes: number;
   nonHeapGrowthPercentage: number;
-
   previousThreadCount: number;
   currentThreadCount: number;
   threadDelta: number;
   threadGrowthPercentage: number;
-
   gcDelta: GcDeltaSnapshot[];
   histogramDelta: HistogramDelta[];
   poolDelta: MemoryPoolDelta[];
-
   currentDeadlockCount: number;
   deadlockDelta: number;
-
   leakSeverity: string | null;
   cpuDelta: CpuDeltaSnapshot | null;
   ioDelta: IoDeltaSnapshot | null;
@@ -212,7 +206,6 @@ export interface JvmDeltaSnapshot {
   windowHeapGrowthBytes: number;
   windowGcCollections: number;
   historicalWeight: number;
-
   leakReasons: string[];
   recommendations: Recommendation[];
   threadCpuTimes: Record<string, number> | null;
@@ -249,6 +242,7 @@ export interface JvmHistorySample {
 }
 
 export interface JvmHistoryResponse {
+  pod: PodInfo;
   pid: number;
   timestamp: TimestampValue;
   history: JvmHistorySample[];

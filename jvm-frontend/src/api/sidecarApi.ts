@@ -46,6 +46,10 @@ export const sidecarApi = {
     return normalizeSnapshots(response);
   },
 
+  getHistories(signal?: AbortSignal) {
+    return getJson<JvmHistoryResponse[]>(API.history, signal);
+  },
+
   getJvms(signal?: AbortSignal) {
     return getJson<JvmSnapshot[]>(API.jvms, signal);
   },
@@ -86,8 +90,8 @@ export const sidecarApi = {
     return getJson<JvmDeltaSnapshot>(API.analysis(pid), signal);
   },
 
-  getHistory(pid: number, signal?: AbortSignal) {
-    return getJson<JvmHistoryResponse>(API.history(pid), signal);
+  getJvmHistory(pid: number, signal?: AbortSignal) {
+    return getJson<JvmHistoryResponse>(API.jvmHistory(pid), signal);
   },
 
   getDeadlocks(pid: number, signal?: AbortSignal) {

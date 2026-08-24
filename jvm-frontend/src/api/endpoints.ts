@@ -1,6 +1,7 @@
 export const API = {
   root: '/',
   snapshot: '/api/v1/snapshot',
+  history: '/api/v1/history',
   cluster: '/api/v1/cluster',
   jvms: '/api/v1/jvms',
 
@@ -14,7 +15,7 @@ export const API = {
   threadCount: (pid: number) => `/api/v1/jvms/${pid}/thread-count`,
   threadCpuTimes: (pid: number) => `/api/v1/jvms/${pid}/thread-cpu-times`,
   analysis: (pid: number) => `/api/v1/jvms/${pid}/analysis`,
-  history: (pid: number) => `/api/v1/jvms/${pid}/history`,
+  jvmHistory: (pid: number) => `/api/v1/jvms/${pid}/history`,
   deadlocks: (pid: number) => `/api/v1/jvms/${pid}/deadlocks`,
   timestamp: (pid: number) => `/api/v1/jvms/${pid}/timestamp`,
 } as const;
