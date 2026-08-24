@@ -10,10 +10,10 @@ import {
 } from 'recharts';
 import { sidecarApi } from '../api/sidecarApi';
 import type {
+  AggregatorSnapshot,
   JvmHistoryResponse,
   JvmHistorySample,
   JvmSnapshot,
-  RootMetadata,
 } from '../models/snapshot';
 import { MetricCard } from '../components/common/MetricCard';
 import {
@@ -25,9 +25,8 @@ import {
 const REFRESH_MS = 5_000;
 
 export function HistoricalAnalysisPage() {
-  const [root, setRoot] = useState<RootMetadata | null>(null);
-  const [jvm, setJvm] = useState<JvmSnapshot | null>(null);
-  const [history, setHistory] = useState<JvmHistoryResponse | null>(null);
+  const [histories, setHistories] = useState<JvmHistoryResponse[]>([]);
+  const [snapshots, setSnapshots] = useState<AggregatorSnapshot[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,27 +34,14 @@ export function HistoricalAnalysisPage() {
 
     async function refresh() {
       try {
-        const [nextRoot, nextJvms] = await Promise.all([
-          sidecarApi.getRoot(),
-          sidecarApi.getJvms(),
+        const [nextHistories, nextSnapshots] = await Promise.all([
+          sidecarApi.getHistories(),
+          sidecarApi.getSnapshots(),
         ]);
 
-        if (cancelled) return;
-
-        setRoot(nextRoot);
-
-        const localJvm = nextJvms[0] ?? null;
-        setJvm(localJvm);
-
-        if (!localJvm) {
-          setHistory(null);
-          return;
-        }
-
-        const nextHistory = await sidecarApi.getHistory(localJvm.pid);
-
         if (!cancelled) {
-          setHistory(nextHistory);
+          setHistories(nextHistories);
+          setSnapshots(nextSnapshots);
           setError(null);
         }
       } catch (cause) {
@@ -78,30 +64,51 @@ export function HistoricalAnalysisPage() {
     };
   }, []);
 
-  const samples = history?.history ?? [];
+  return (
+    <div className="page-stack">
+      {error ? <div className="stale-banner">{error}</div> : null}
+
+      {histories.map((history) => {
+        const latestJvm = findJvmSnapshot(snapshots, history);
+        return (
+          <PodHistorySection
+            key={`${history.pod.namespace}/${history.pod.name}:${history.pid}`}
+            history={history}
+            latestJvm={latestJvm}
+          />
+        );
+      })}
+
+      {histories.length === 0 ? (
+        <section className="panel">
+          <div className="inline-empty">Waiting for JVM history from cluster sidecars…</div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function PodHistorySection({
+  history,
+  latestJvm,
+}: {
+  history: JvmHistoryResponse;
+  latestJvm: JvmSnapshot | null;
+}) {
+  const samples = history.history ?? [];
   const summary = useMemo(() => summarize(samples), [samples]);
 
   return (
-    <div className="page-stack">
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">Historical source</span>
-            <h3>Backend-retained JVM history</h3>
-          </div>
-          <span className="panel-meta">
-            {root ? `${root.pod.namespace}/${root.pod.name}` : 'Loading sidecar…'}
-            {jvm ? ` · PID ${jvm.pid}` : ''}
-          </span>
+    <section className="content-section">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">{history.pod.namespace}</span>
+          <h3>{history.pod.name}</h3>
         </div>
-
-        <p>
-          Each sidecar monitors one target JVM, so the UI automatically uses that local JVM and
-          fetches <code>/api/v1/jvms/{'{pid}'}/history</code>. No PID selection is required.
-        </p>
-
-        {error ? <div className="stale-banner">{error}</div> : null}
-      </section>
+        <span className="section-meta">
+          {history.pod.app} · PID {history.pid} · {samples.length} samples
+        </span>
+      </div>
 
       <section className="metric-grid">
         <MetricCard
@@ -151,29 +158,29 @@ export function HistoricalAnalysisPage() {
             </div>
           </div>
 
-          {jvm?.delta ? (
+          {latestJvm?.delta ? (
             <div className="delta-grid">
               <div>
                 <span>Heap</span>
-                <strong>{formatPercent(jvm.delta.heapGrowthPercentage)}</strong>
-                <small>{formatBytes(jvm.delta.heapDelta)}</small>
+                <strong>{formatPercent(latestJvm.delta.heapGrowthPercentage)}</strong>
+                <small>{formatBytes(latestJvm.delta.heapDelta)}</small>
               </div>
               <div>
                 <span>Non-heap</span>
-                <strong>{formatPercent(jvm.delta.nonHeapGrowthPercentage)}</strong>
-                <small>{formatBytes(jvm.delta.nonHeapDelta)}</small>
+                <strong>{formatPercent(latestJvm.delta.nonHeapGrowthPercentage)}</strong>
+                <small>{formatBytes(latestJvm.delta.nonHeapDelta)}</small>
               </div>
               <div>
                 <span>Threads</span>
                 <strong>
-                  {jvm.delta.threadDelta >= 0 ? '+' : ''}
-                  {jvm.delta.threadDelta}
+                  {latestJvm.delta.threadDelta >= 0 ? '+' : ''}
+                  {latestJvm.delta.threadDelta}
                 </strong>
                 <small>latest interval only</small>
               </div>
               <div>
                 <span>Instant evidence</span>
-                <strong>{jvm.delta.instantaneousLeakScore}</strong>
+                <strong>{latestJvm.delta.instantaneousLeakScore}</strong>
                 <small>before historical smoothing</small>
               </div>
             </div>
@@ -184,29 +191,21 @@ export function HistoricalAnalysisPage() {
           )}
         </article>
       </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <span className="eyebrow">How to read this page</span>
-            <h3>Two analyses, two questions</h3>
-          </div>
-        </div>
-        <div className="delta-grid">
-          <div>
-            <span>Latest delta</span>
-            <strong>2 samples</strong>
-            <small>What changed in the most recent collector interval?</small>
-          </div>
-          <div>
-            <span>Historical analysis</span>
-            <strong>{samples.length} samples</strong>
-            <small>What behavior persisted across the retained time window?</small>
-          </div>
-        </div>
-      </section>
-    </div>
+    </section>
   );
+}
+
+function findJvmSnapshot(
+  snapshots: AggregatorSnapshot[],
+  history: JvmHistoryResponse,
+): JvmSnapshot | null {
+  const pod = snapshots.find(
+    (snapshot) =>
+      snapshot.pod.namespace === history.pod.namespace &&
+      snapshot.pod.name === history.pod.name,
+  );
+
+  return pod?.jvmSnapshots?.find((jvm) => jvm.pid === history.pid) ?? null;
 }
 
 function summarize(samples: JvmHistorySample[]) {
