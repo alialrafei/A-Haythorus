@@ -19,6 +19,7 @@ It attaches to a target JVM through the Java Attach API, collects runtime data t
 
 The project is intentionally built with plain Java infrastructure components rather than a large application framework so that the runtime behavior, JVM interaction, networking, discovery, and analysis logic remain explicit and easy to reason about.
 
+![Dashboard Overview](jvm-frontend/docs/assets/light_mode_dashboard.png)
 ---
 
 ## 1. Goals
@@ -863,3 +864,4 @@ The most important conceptual rule is:
 > A delta tells us movement. A leak is a behavior across time.
 
 A-Haythorus therefore preserves pairwise delta for local movement while using bounded historical observations for retention analysis and leak confidence.
+![Recommendation](jvm-frontend/docs/assets/recommendations.png)
