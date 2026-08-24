@@ -6,6 +6,7 @@ import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.CpuDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.GcDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.HistogramDeltaStrategy;
+import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.IoDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.MemoryDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.MemoryPoolDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.ThreadDeltaStrategy;
@@ -31,7 +32,8 @@ public final class DeltaEngine {
           new GcDeltaStrategy(),
           new MemoryPoolDeltaStrategy(),
           new HistogramDeltaStrategy(),
-          new CpuDeltaStrategy());
+          new CpuDeltaStrategy(),
+          new IoDeltaStrategy());
 
   private DeltaEngine() {}
 
