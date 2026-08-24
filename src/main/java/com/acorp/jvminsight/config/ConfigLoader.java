@@ -21,6 +21,9 @@ public final class ConfigLoader {
           Map.entry("sidecar.peers", "AH_SIDECAR_PEERS"),
           Map.entry("sidecar.discovery.label", "AH_DISCOVERY_LABEL"),
           Map.entry("collector.interval.ms", "AH_COLLECTOR_INTERVAL_MS"),
+          Map.entry("history.max.samples", "AH_HISTORY_MAX_SAMPLES"),
+          Map.entry("leak.window.seconds", "AH_LEAK_WINDOW_SECONDS"),
+          Map.entry("leak.ewma.alpha", "AH_LEAK_EWMA_ALPHA"),
           Map.entry("cluster.connect.timeout.ms", "AH_CLUSTER_CONNECT_TIMEOUT_MS"),
           Map.entry("cluster.request.timeout.ms", "AH_CLUSTER_REQUEST_TIMEOUT_MS"),
           Map.entry("pod.name", "POD_NAME"),
@@ -90,6 +93,25 @@ public final class ConfigLoader {
 
       throw new IllegalStateException(
           "Configuration '" + key + "' must be a long but was '" + value + "'", ex);
+    }
+  }
+
+  public static double getDouble(String key, double defaultValue) {
+
+    String value = get(key);
+
+    if (value == null || value.isBlank()) {
+      return defaultValue;
+    }
+
+    try {
+
+      return Double.parseDouble(value.trim());
+
+    } catch (NumberFormatException ex) {
+
+      throw new IllegalStateException(
+          "Configuration '" + key + "' must be a double but was '" + value + "'", ex);
     }
   }
 
