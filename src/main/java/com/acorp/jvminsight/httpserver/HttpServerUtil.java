@@ -29,6 +29,7 @@ public final class HttpServerUtil {
       SnapshotHandler snapshotHandler = new SnapshotHandler();
 
       server.createContext(RouteConstants.SNAPSHOT, snapshotHandler);
+      server.createContext(RouteConstants.HISTORY, snapshotHandler);
       server.createContext(RouteConstants.JVMS, snapshotHandler);
       server.createContext(RouteConstants.UI, new StaticUiHandler(uiDirectory));
 
