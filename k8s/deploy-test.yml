@@ -94,6 +94,18 @@ spec:
             - name: AH_DISCOVERY_LABEL
               value: a-haythorus.io/enabled=true
 
+            - name: AH_COLLECTOR_INTERVAL_MS
+              value: "5000"
+
+            - name: AH_HISTORY_MAX_SAMPLES
+              value: "120"
+
+            - name: AH_LEAK_WINDOW_SECONDS
+              value: "60"
+
+            - name: AH_LEAK_EWMA_ALPHA
+              value: "0.35"
+
             - name: POD_NAME
               valueFrom:
                 fieldRef:
