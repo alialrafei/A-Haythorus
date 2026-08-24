@@ -11,6 +11,7 @@ import {
 import { OverviewPage } from '../../pages/OverviewPage';
 import { PodsPage } from '../../pages/PodsPage';
 import { ProblemsPage } from '../../pages/ProblemsPage';
+import { ResourcesPage } from '../../pages/ResourcesPage';
 import { JvmPage } from '../../pages/JvmPage';
 import { useMonitoring } from '../../context/MonitoringContext';
 
@@ -25,6 +26,10 @@ const pageCopy: Record<
   pods: {
     title: 'Pods & JVMs',
     subtitle: 'Explore monitored workloads and runtime instances',
+  },
+  resources: {
+    title: 'Process resources',
+    subtitle: 'CPU and Linux I/O telemetry across monitored JVMs',
   },
   problems: {
     title: 'Problems',
@@ -135,6 +140,10 @@ export function AppShell() {
 
           {page === 'pods' ? (
             <PodsPage onOpenJvm={openJvm} />
+          ) : null}
+
+          {page === 'resources' ? (
+            <ResourcesPage onOpenJvm={openJvm} />
           ) : null}
 
           {page === 'problems' ? (
