@@ -10,6 +10,7 @@ import com.acorp.jvminsight.memory.MemorySnapshot;
 import com.acorp.jvminsight.memory.histogram.ClassHistogramEntry;
 import com.acorp.jvminsight.memory.histogram.HistogramParser;
 import com.acorp.jvminsight.snapshotcollection.JvmDataStore;
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.DeltaEngine;
@@ -116,15 +117,12 @@ public class JvmCollector implements Runnable {
 
     snapshot.setTimestamp(Instant.now());
 
-    /*
-     * History is read before inserting the new snapshot. DeltaEngine therefore receives an
-     * ordered window ending at the previous sample plus the freshly collected current sample.
-     */
-    List<JvmSnapshot> retainedHistory = JvmDataStore.getHistory(pid);
-    JvmDeltaSnapshot delta = DeltaEngine.compute(retainedHistory, snapshot);
+    JvmSnapshot previousSnapshot = JvmDataStore.getSnapshot(pid);
+    List<JvmHistorySample> retainedHistory = JvmDataStore.getHistory(pid);
+
+    JvmDeltaSnapshot delta = DeltaEngine.compute(retainedHistory, previousSnapshot, snapshot);
     snapshot.setDelta(delta);
 
-    /* Store only after the snapshot and its analysis have been completely built. */
     JvmDataStore.put(pid, snapshot);
     lastStoredSnapshot = snapshot;
 
