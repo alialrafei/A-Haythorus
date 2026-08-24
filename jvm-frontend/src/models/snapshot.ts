@@ -235,6 +235,25 @@ export interface JvmSnapshot {
   processIo: ProcessIoSnapshot | null;
 }
 
+export interface JvmHistorySample {
+  timestamp: TimestampValue;
+  heapUsed: number;
+  nonHeapUsed: number;
+  oldGenerationUsed: number;
+  threadCount: number;
+  gcCollectionCounts: Record<string, number>;
+  processCpuTimeNanos: number;
+  processReadBytes: number;
+  processWriteBytes: number;
+  leakConfidence: number;
+}
+
+export interface JvmHistoryResponse {
+  pid: number;
+  timestamp: TimestampValue;
+  history: JvmHistorySample[];
+}
+
 export interface ThreadCountResponse {
   pid: number;
   threadCount: number;

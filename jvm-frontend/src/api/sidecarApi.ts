@@ -6,6 +6,7 @@ import type {
   DeadlockResponse,
   GcSnapshot,
   JvmDeltaSnapshot,
+  JvmHistoryResponse,
   JvmSnapshot,
   MemoryPoolSnapshot,
   MemorySnapshot,
@@ -83,6 +84,10 @@ export const sidecarApi = {
 
   getAnalysis(pid: number, signal?: AbortSignal) {
     return getJson<JvmDeltaSnapshot>(API.analysis(pid), signal);
+  },
+
+  getHistory(pid: number, signal?: AbortSignal) {
+    return getJson<JvmHistoryResponse>(API.history(pid), signal);
   },
 
   getDeadlocks(pid: number, signal?: AbortSignal) {

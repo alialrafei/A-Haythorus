@@ -35,6 +35,6 @@ public final class RouteConstants {
   public static final String DEADLOCKS = "deadlocks";
 
   public static final String TIMESTAMP = "timestamp";
-  
-  public static final String JVM_HISTORY = "/api/v1/jvms/{pid}/history";
+
+  public static final String JVM_HISTORY = "history";
 }

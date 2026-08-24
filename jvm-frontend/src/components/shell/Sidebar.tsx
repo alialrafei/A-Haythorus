@@ -11,6 +11,7 @@ export type PageId =
   | 'overview'
   | 'pods'
   | 'resources'
+  | 'history'
   | 'problems'
   | 'jvm';
 
@@ -35,6 +36,11 @@ const navItems: NavItem[] = [
     id: 'resources',
     label: 'Resources',
     icon: 'pulse',
+  },
+  {
+    id: 'history',
+    label: 'Historical Analysis',
+    icon: 'timeline-line-chart',
   },
   {
     id: 'problems',
