@@ -1,11 +1,11 @@
 package com.acorp.jvminsight.snapshotcollection.service.delta;
 
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.CpuDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.GcDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.HistogramDeltaStrategy;
-import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.LeakDetectionStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.MemoryDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.MemoryPoolDeltaStrategy;
 import com.acorp.jvminsight.snapshotcollection.service.delta.strategy.ThreadDeltaStrategy;
@@ -15,67 +15,78 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Main orchestrator responsible for computing JVM delta snapshots.
+ * Main orchestrator for JVM delta and trend computation.
  *
- * <p>The engine delegates individual computations to registered strategies.
- *
- * <p>Strategies are executed sequentially and independently. Failure in one strategy does not
- * prevent the remaining computations from executing.
+ * <p>Pairwise strategies answer "what changed since the previous sample?". Historical leak analysis
+ * runs afterwards and answers "has suspicious retention persisted across the analysis window?".
  */
 public final class DeltaEngine {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DeltaEngine.class);
 
-  /** Ordered list of delta computation strategies. */
-  private static final List<DeltaComputationStrategy> STRATEGIES =
+  private static final List<DeltaComputationStrategy> PAIRWISE_STRATEGIES =
       List.of(
           new MemoryDeltaStrategy(),
           new ThreadDeltaStrategy(),
           new GcDeltaStrategy(),
           new MemoryPoolDeltaStrategy(),
           new HistogramDeltaStrategy(),
-          new CpuDeltaStrategy(),
-          new LeakDetectionStrategy());
+          new CpuDeltaStrategy());
 
   private DeltaEngine() {}
 
-  /**
-   * Computes the delta between two snapshots.
-   *
-   * @param previous previous snapshot
-   * @param current current snapshot
-   * @return computed delta snapshot
-   */
+  /** Compatibility overload for callers that only have two full snapshots. */
   public static JvmDeltaSnapshot compute(JvmSnapshot previous, JvmSnapshot current) {
+    List<JvmHistorySample> history =
+        previous == null ? List.of() : List.of(JvmHistorySample.from(previous));
+    return compute(history, previous, current);
+  }
+
+  /**
+   * Computes latest pairwise movement and history-aware leak confidence.
+   *
+   * @param retainedHistory lightweight historical samples, oldest to newest
+   * @param previous previous full snapshot, used by pairwise strategies
+   * @param current newly collected full snapshot, not yet inserted into the store
+   */
+  public static JvmDeltaSnapshot compute(
+      List<JvmHistorySample> retainedHistory, JvmSnapshot previous, JvmSnapshot current) {
+
     LOGGER.debug("Starting delta computation for pid={}", current.getPid());
     JvmDeltaSnapshot delta = new JvmDeltaSnapshot();
-    if (previous == null) {
-      LOGGER.debug(
-          "No previous snapshot found for pid={}. Returning empty delta.", current.getPid());
 
-      return delta;
-    }
-    delta.setIntervalMillis(Duration.between(previous.getTimestamp(), current.getTimestamp()));
-
-    for (DeltaComputationStrategy strategy : STRATEGIES) {
-      long start = System.nanoTime();
-      try {
-        strategy.compute(previous, current, delta);
-        LOGGER.debug(
-            "{} completed in {} μs",
-            strategy.getClass().getSimpleName(),
-            (System.nanoTime() - start) / 1_000);
-
-      } catch (Exception ex) {
-        LOGGER.error(
-            "Strategy {} failed while computing pid={}",
-            strategy.getClass().getSimpleName(),
-            current.getPid(),
-            ex);
+    if (previous != null) {
+      if (previous.getTimestamp() != null && current.getTimestamp() != null) {
+        delta.setIntervalMillis(Duration.between(previous.getTimestamp(), current.getTimestamp()));
       }
-    }
-    LOGGER.debug("Finished delta computation for pid={}", current.getPid());
 
+      for (DeltaComputationStrategy strategy : PAIRWISE_STRATEGIES) {
+        long start = System.nanoTime();
+        try {
+          strategy.compute(previous, current, delta);
+          LOGGER.debug(
+              "{} completed in {} μs",
+              strategy.getClass().getSimpleName(),
+              (System.nanoTime() - start) / 1_000);
+        } catch (Exception ex) {
+          LOGGER.error(
+              "Strategy {} failed while computing pid={}",
+              strategy.getClass().getSimpleName(),
+              current.getPid(),
+              ex);
+        }
+      }
+    } else {
+      LOGGER.debug("No previous snapshot found for pid={}; pairwise delta is empty.", current.getPid());
+    }
+
+    try {
+      HistoricalLeakAnalyzer.analyze(retainedHistory, current, delta);
+    } catch (Exception ex) {
+      LOGGER.error("Historical leak analysis failed for pid={}", current.getPid(), ex);
+    }
+
+    LOGGER.debug("Finished delta computation for pid={}", current.getPid());
     return delta;
   }
 }
