@@ -1,6 +1,7 @@
 package com.acorp.jvminsight.snapshotcollection.service;
 
 import com.acorp.jvminsight.attach.JvmAttachClient;
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.memory.GcCollector;
 import com.acorp.jvminsight.memory.GcSnapshot;
 import com.acorp.jvminsight.memory.MemoryCollector;
@@ -37,7 +38,8 @@ import org.slf4j.LoggerFactory;
 public class JvmCollector implements Runnable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(JvmCollector.class);
-  private static final long SAMPLE_INTERVAL_MS = 5000;
+  private static final long SAMPLE_INTERVAL_MS =
+      Math.max(250L, ConfigLoader.getLong("collector.interval.ms", 5000L));
 
   private final long pid;
   private final MBeanServerConnection mbeanServer;
@@ -52,7 +54,7 @@ public class JvmCollector implements Runnable {
 
   @Override
   public void run() {
-    LOGGER.info("Starting collection loop for pid={}", pid);
+    LOGGER.info("Starting collection loop for pid={} intervalMs={}", pid, SAMPLE_INTERVAL_MS);
 
     try {
       while (!Thread.currentThread().isInterrupted()) {
