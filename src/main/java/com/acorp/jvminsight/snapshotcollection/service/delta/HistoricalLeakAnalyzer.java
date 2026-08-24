@@ -1,7 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.delta;
 
-import com.acorp.jvminsight.memory.GcSnapshot;
-import com.acorp.jvminsight.memory.MemoryPoolSnapshot;
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.HistogramDelta;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
@@ -9,30 +8,22 @@ import com.acorp.jvminsight.snapshotcollection.dto.delta.LeakSeverity;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.Recommendation;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.RecommendationSeverity;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Computes leak confidence from a short historical window instead of treating one pairwise delta as
- * a leak diagnosis.
- *
- * <p>The pairwise delta remains a raw measurement. This analyzer derives trend features from many
- * snapshots, combines independent signals into an instantaneous evidence score, and finally applies
- * EWMA smoothing so persistent evidence gains confidence while one-off allocation bursts decay.
- */
+/** History-aware, explainable leak-confidence model. */
 public final class HistoricalLeakAnalyzer {
 
-  private static final int WINDOW_SIZE = 12; // ~60 seconds at a 5 second sampling interval
-  private static final double ALPHA = 0.35; // new evidence weight
+  private static final int WINDOW_SIZE = 12;
+  private static final double ALPHA = 0.35;
   private static final double HISTORICAL_WEIGHT = 1.0 - ALPHA;
 
   private HistoricalLeakAnalyzer() {}
 
   public static void analyze(
-      List<JvmSnapshot> retainedHistory, JvmSnapshot current, JvmDeltaSnapshot delta) {
+      List<JvmHistorySample> retainedHistory, JvmSnapshot current, JvmDeltaSnapshot delta) {
 
-    List<JvmSnapshot> window = buildWindow(retainedHistory, current);
+    List<JvmHistorySample> window = buildWindow(retainedHistory, JvmHistorySample.from(current));
     if (window.size() < 2) {
       delta.setInstantaneousLeakScore(0);
       delta.setLeakScore(0);
@@ -47,16 +38,17 @@ public final class HistoricalLeakAnalyzer {
     List<String> reasons = new ArrayList<>();
     List<Recommendation> recommendations = new ArrayList<>();
 
-    Trend heapTrend = heapTrend(window);
+    Trend heapTrend = trend(window.stream().map(JvmHistorySample::heapUsed).toList());
     delta.setHeapGrowthPersistence(heapTrend.persistence());
     delta.setWindowHeapGrowthBytes(heapTrend.netGrowth());
 
     int heapScore = heapEvidence(heapTrend, reasons);
 
-    Trend oldGenTrend = oldGenerationTrend(window);
+    Trend oldGenTrend =
+        trend(window.stream().map(JvmHistorySample::oldGenerationUsed).filter(v -> v > 0).toList());
     int oldGenScore = oldGenerationEvidence(oldGenTrend, reasons);
 
-    long gcCollections = gcCollections(window.get(0), current);
+    long gcCollections = gcCollections(window.get(0), window.get(window.size() - 1));
     delta.setWindowGcCollections(gcCollections);
     int gcScore = gcReclaimEvidence(heapTrend, gcCollections, reasons);
 
@@ -65,16 +57,11 @@ public final class HistoricalLeakAnalyzer {
 
     int rawEvidence = clamp(heapScore + oldGenScore + gcScore + histogramScore + threadScore);
 
-    // Do not become highly confident from only two or three points. Five intervals (~25 seconds)
-    // are required before the historical window reaches full maturity.
     double maturity = Math.min(1.0, (window.size() - 1) / 5.0);
     int instantaneous = (int) Math.round(rawEvidence * maturity);
 
-    int previousConfidence = previousLeakConfidence(retainedHistory);
-    int confidence =
-        previousConfidence == 0
-            ? instantaneous
-            : clamp((int) Math.round(ALPHA * instantaneous + HISTORICAL_WEIGHT * previousConfidence));
+    int previousConfidence = retainedHistory.isEmpty() ? 0 : retainedHistory.get(retainedHistory.size() - 1).leakConfidence();
+    int confidence = clamp((int) Math.round(ALPHA * instantaneous + HISTORICAL_WEIGHT * previousConfidence));
 
     delta.setInstantaneousLeakScore(instantaneous);
     delta.setLeakScore(confidence);
@@ -88,39 +75,17 @@ public final class HistoricalLeakAnalyzer {
     delta.setRecommendations(recommendations);
   }
 
-  private static List<JvmSnapshot> buildWindow(List<JvmSnapshot> retainedHistory, JvmSnapshot current) {
-    List<JvmSnapshot> result = new ArrayList<>();
+  private static List<JvmHistorySample> buildWindow(
+      List<JvmHistorySample> retainedHistory, JvmHistorySample current) {
+    List<JvmHistorySample> result = new ArrayList<>();
     int from = Math.max(0, retainedHistory.size() - (WINDOW_SIZE - 1));
     result.addAll(retainedHistory.subList(from, retainedHistory.size()));
     result.add(current);
     return result;
   }
 
-  private static Trend heapTrend(List<JvmSnapshot> window) {
-    List<Long> values = new ArrayList<>();
-    for (JvmSnapshot snapshot : window) {
-      if (snapshot.getMemory() != null) {
-        values.add(snapshot.getMemory().heapUsed);
-      }
-    }
-    return trend(values);
-  }
-
-  private static Trend oldGenerationTrend(List<JvmSnapshot> window) {
-    List<Long> values = new ArrayList<>();
-    for (JvmSnapshot snapshot : window) {
-      Long oldGen = oldGenerationUsed(snapshot);
-      if (oldGen != null) {
-        values.add(oldGen);
-      }
-    }
-    return trend(values);
-  }
-
   private static Trend trend(List<Long> values) {
-    if (values.size() < 2) {
-      return Trend.EMPTY;
-    }
+    if (values.size() < 2) return Trend.EMPTY;
 
     int positiveIntervals = 0;
     long positiveGrowth = 0;
@@ -152,29 +117,26 @@ public final class HistoricalLeakAnalyzer {
   }
 
   private static int heapEvidence(Trend trend, List<String> reasons) {
-    if (!trend.available() || trend.netGrowth() <= 0) {
-      return 0;
-    }
+    if (!trend.available() || trend.netGrowth() <= 0) return 0;
 
     int persistencePoints = (int) Math.round(15.0 * trend.persistence());
-    int growthPoints = (int) Math.round(15.0 * normalizePositive(trend.netGrowthPercentage(), 20.0));
-    int score = persistencePoints + growthPoints;
+    int growthPoints =
+        (int) Math.round(15.0 * normalizePositive(trend.netGrowthPercentage(), 20.0));
 
     reasons.add(
         String.format(
             "Heap retained %.2f MB across the window; %.0f%% of intervals moved upward.",
             trend.netGrowth() / 1024.0 / 1024.0,
             trend.persistence() * 100.0));
-    return score;
+    return persistencePoints + growthPoints;
   }
 
   private static int oldGenerationEvidence(Trend trend, List<String> reasons) {
-    if (!trend.available() || trend.netGrowth() <= 0) {
-      return 0;
-    }
+    if (!trend.available() || trend.netGrowth() <= 0) return 0;
 
     int persistencePoints = (int) Math.round(12.0 * trend.persistence());
-    int growthPoints = (int) Math.round(13.0 * normalizePositive(trend.netGrowthPercentage(), 20.0));
+    int growthPoints =
+        (int) Math.round(13.0 * normalizePositive(trend.netGrowthPercentage(), 20.0));
 
     reasons.add(
         String.format(
@@ -185,9 +147,7 @@ public final class HistoricalLeakAnalyzer {
 
   private static int gcReclaimEvidence(
       Trend heapTrend, long gcCollections, List<String> reasons) {
-    if (gcCollections <= 0 || !heapTrend.available() || heapTrend.positiveGrowth() <= 0) {
-      return 0;
-    }
+    if (gcCollections <= 0 || !heapTrend.available() || heapTrend.positiveGrowth() <= 0) return 0;
 
     double reclaimRatio =
         Math.min(1.0, heapTrend.reclaimed() / (double) Math.max(1L, heapTrend.positiveGrowth()));
@@ -205,19 +165,14 @@ public final class HistoricalLeakAnalyzer {
   }
 
   private static int histogramEvidence(JvmDeltaSnapshot delta, List<String> reasons) {
-    if (delta.getHistogramDelta() == null || delta.getHistogramDelta().isEmpty()) {
-      return 0;
-    }
+    if (delta.getHistogramDelta() == null || delta.getHistogramDelta().isEmpty()) return 0;
 
     HistogramDelta top =
         delta.getHistogramDelta().stream()
             .filter(h -> h.getBytesDelta() > 0 && h.getPreviousBytes() > 0)
             .findFirst()
             .orElse(null);
-
-    if (top == null) {
-      return 0;
-    }
+    if (top == null) return 0;
 
     double growth = (top.getBytesDelta() / (double) top.getPreviousBytes()) * 100.0;
     int score = (int) Math.round(15.0 * normalizePositive(growth, 50.0));
@@ -225,69 +180,29 @@ public final class HistoricalLeakAnalyzer {
       reasons.add(
           String.format(
               "%s retained an additional %.2f MB between the latest histogram samples.",
-              top.getClassName(),
-              top.getBytesDelta() / 1024.0 / 1024.0));
+              top.getClassName(), top.getBytesDelta() / 1024.0 / 1024.0));
     }
     return score;
   }
 
-  private static int threadEvidence(List<JvmSnapshot> window, List<String> reasons) {
-    if (window.size() < 2) {
-      return 0;
-    }
-
-    long first = window.get(0).getThreadCount();
-    long last = window.get(window.size() - 1).getThreadCount();
-    long growth = last - first;
-    if (growth <= 0) {
-      return 0;
-    }
+  private static int threadEvidence(List<JvmHistorySample> window, List<String> reasons) {
+    long growth = window.get(window.size() - 1).threadCount() - window.get(0).threadCount();
+    if (growth <= 0) return 0;
 
     int score = (int) Math.min(10, growth);
     reasons.add(String.format("Thread count increased by %d across the analysis window.", growth));
     return score;
   }
 
-  private static long gcCollections(JvmSnapshot first, JvmSnapshot current) {
-    if (first.getGc() == null || current.getGc() == null) {
-      return 0;
-    }
-
-    Map<String, Long> previous = new HashMap<>();
-    for (GcSnapshot gc : first.getGc()) {
-      previous.put(gc.name, gc.collectionCount);
-    }
-
+  private static long gcCollections(JvmHistorySample first, JvmHistorySample last) {
     long total = 0;
-    for (GcSnapshot gc : current.getGc()) {
-      Long old = previous.get(gc.name);
-      if (old != null && gc.collectionCount >= old) {
-        total += gc.collectionCount - old;
+    for (Map.Entry<String, Long> current : last.gcCollectionCounts().entrySet()) {
+      Long previous = first.gcCollectionCounts().get(current.getKey());
+      if (previous != null && current.getValue() >= previous) {
+        total += current.getValue() - previous;
       }
     }
     return total;
-  }
-
-  private static Long oldGenerationUsed(JvmSnapshot snapshot) {
-    if (snapshot.getPools() == null) {
-      return null;
-    }
-
-    for (MemoryPoolSnapshot pool : snapshot.getPools()) {
-      String name = pool.name == null ? "" : pool.name;
-      if (name.contains("Old Gen") || name.contains("Tenured") || name.contains("old generation")) {
-        return pool.used;
-      }
-    }
-    return null;
-  }
-
-  private static int previousLeakConfidence(List<JvmSnapshot> history) {
-    if (history.isEmpty()) {
-      return 0;
-    }
-    JvmSnapshot previous = history.get(history.size() - 1);
-    return previous.getDelta() == null ? 0 : previous.getDelta().getLeakScore();
   }
 
   private static Recommendation memoryRecommendation(int confidence, List<String> reasons) {
@@ -298,8 +213,10 @@ public final class HistoricalLeakAnalyzer {
             : confidence >= 60 ? RecommendationSeverity.WARNING : RecommendationSeverity.INFO);
     recommendation.setConfidence(confidence / 100.0);
     recommendation.setTitle("Persistent memory-retention pattern detected");
-    recommendation.setDiagnosis("Historical JVM metrics indicate sustained retention rather than a single allocation burst.");
-    recommendation.setProbableCause("Long-lived objects, caches, listeners, queues, or other references may be preventing reclamation.");
+    recommendation.setDiagnosis(
+        "Historical JVM metrics indicate sustained retention rather than a single allocation burst.");
+    recommendation.setProbableCause(
+        "Long-lived objects, caches, listeners, queues, or other references may be preventing reclamation.");
     recommendation.setRecommendation(
         "Inspect retained objects and compare heap/class histograms across the same time window; capture a heap dump when confidence remains elevated.");
     recommendation.setEvidence(List.copyOf(reasons));
@@ -307,10 +224,7 @@ public final class HistoricalLeakAnalyzer {
   }
 
   private static double normalizePositive(double value, double fullScale) {
-    if (value <= 0) {
-      return 0.0;
-    }
-    return Math.min(1.0, value / fullScale);
+    return value <= 0 ? 0.0 : Math.min(1.0, value / fullScale);
   }
 
   private static int clamp(int value) {
