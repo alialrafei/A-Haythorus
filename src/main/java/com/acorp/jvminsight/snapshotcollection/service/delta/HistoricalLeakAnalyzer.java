@@ -37,6 +37,26 @@ public final class HistoricalLeakAnalyzer {
 
   private static final double HISTORICAL_WEIGHT = 1.0 - ALPHA;
 
+  private static final double HEAP_RETENTION_WEIGHT =
+      nonNegativeWeight(
+          "analysis.memory.heap-retention.weight",
+          ConfigLoader.getDouble("analysis.memory.heap-retention.weight", 1.0));
+
+  private static final double OLD_GEN_RETENTION_WEIGHT =
+      nonNegativeWeight(
+          "analysis.memory.old-gen-retention.weight",
+          ConfigLoader.getDouble("analysis.memory.old-gen-retention.weight", 1.0));
+
+  private static final double GC_RECLAIM_WEIGHT =
+      nonNegativeWeight(
+          "analysis.memory.gc-reclaim.weight",
+          ConfigLoader.getDouble("analysis.memory.gc-reclaim.weight", 1.0));
+
+  private static final double HISTOGRAM_GROWTH_WEIGHT =
+      nonNegativeWeight(
+          "analysis.memory.histogram-growth.weight",
+          ConfigLoader.getDouble("analysis.memory.histogram-growth.weight", 1.0));
+
   private HistoricalLeakAnalyzer() {}
 
   public static void analyze(
@@ -66,7 +86,12 @@ public final class HistoricalLeakAnalyzer {
     EvidenceSignal gc = gcReclaimEvidence(heapTrend, gcCollections, reasons);
     EvidenceSignal histogram = histogramEvidence(delta, reasons);
 
-    double normalizedEvidence = averageAvailableEvidence(heap, oldGen, gc, histogram);
+    double normalizedEvidence =
+        weightedAvailableEvidence(
+            weighted(heap, HEAP_RETENTION_WEIGHT),
+            weighted(oldGen, OLD_GEN_RETENTION_WEIGHT),
+            weighted(gc, GC_RECLAIM_WEIGHT),
+            weighted(histogram, HISTOGRAM_GROWTH_WEIGHT));
     double rawEvidenceScore = normalizedEvidence * 100.0;
     double maturity = windowMaturity(window);
     double instantaneousScore = rawEvidenceScore * maturity;
@@ -102,19 +127,14 @@ public final class HistoricalLeakAnalyzer {
    *   E = 0      => signal was observed and showed no suspicious behavior.
    *   unavailable => signal could not be evaluated and must not lower the average.
    *
-   * Final equal-weight memory evidence:
+   * Final weighted memory evidence:
    *
-   *       sum(E_i for available signals)
-   * E = ---------------------------------
-   *          number of available signals
+   *       sum(w_i * E_i) over available signals
+   * E = -----------------------------------------
+   *       sum(w_i) over available signals
    *
-   * Future user-configurable weighting can become:
-   *
-   *       sum(w_i * E_i)
-   * E = ------------------
-   *          sum(w_i)
-   *
-   * without changing any individual evidence formula.
+   * Default weights are all 1.0, so the formula reduces to the arithmetic mean.
+   * Multiplying every configured weight by the same constant does not change the score.
    * =========================================================
    */
 
@@ -279,19 +299,44 @@ public final class HistoricalLeakAnalyzer {
         "Upward class-histogram dominance and top growing-class concentration.");
   }
 
-  private static double averageAvailableEvidence(EvidenceSignal... signals) {
-    double total = 0.0;
-    int available = 0;
+  /**
+   * Weighted evidence aggregation:
+   *
+   * <pre>
+   * E = sum(w_i * E_i) / sum(w_i)
+   * </pre>
+   *
+   * <p>Only available signals participate. A zero-weight signal is intentionally disabled.
+   */
+  private static double weightedAvailableEvidence(WeightedSignal... signals) {
+    double weightedSum = 0.0;
+    double totalWeight = 0.0;
 
-    for (EvidenceSignal signal : signals) {
-      if (!signal.available()) {
+    for (WeightedSignal weightedSignal : signals) {
+      EvidenceSignal signal = weightedSignal.signal();
+      double weight = weightedSignal.weight();
+
+      if (!signal.available() || weight <= 0.0) {
         continue;
       }
-      total += clamp01(signal.value());
-      available++;
+
+      weightedSum += weight * clamp01(signal.value());
+      totalWeight += weight;
     }
 
-    return available == 0 ? 0.0 : total / available;
+    return totalWeight == 0.0 ? 0.0 : weightedSum / totalWeight;
+  }
+
+  private static WeightedSignal weighted(EvidenceSignal signal, double weight) {
+    return new WeightedSignal(signal, weight);
+  }
+
+  private static double nonNegativeWeight(String key, double weight) {
+    if (weight < 0.0) {
+      throw new IllegalStateException(
+          "Configuration '" + key + "' must be greater than or equal to 0.");
+    }
+    return weight;
   }
 
   private static double mean(double first, double second) {
@@ -434,6 +479,8 @@ public final class HistoricalLeakAnalyzer {
         List.of("Insufficient history to evaluate a memory-retention trend."));
     delta.setRecommendations(List.of());
   }
+
+  private record WeightedSignal(EvidenceSignal signal, double weight) {}
 
   private record Trend(
       long first,
