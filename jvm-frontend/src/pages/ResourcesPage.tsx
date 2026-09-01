@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon } from '@blueprintjs/core';
 import { useMonitoring } from '../context/MonitoringContext';
 import { MetricCard } from '../components/common/MetricCard';
-import { formatBytes, formatPercent } from '../utils/format';
+import { formatBytes, formatPercent, formatScore } from '../utils/format';
 
 export function ResourcesPage({
   onOpenJvm,
@@ -46,14 +46,14 @@ export function ResourcesPage({
       <section className="metric-grid">
         <MetricCard
           label="CPU pressure"
-          value={formatPercent(avgCpuPressure)}
+          value={formatScore(avgCpuPressure)}
           detail="Historical sustained process pressure"
           icon="dashboard"
           accent="accent"
         />
         <MetricCard
           label="I/O activity"
-          value={formatPercent(avgIoActivity)}
+          value={formatScore(avgIoActivity)}
           detail="Historical sustained process activity"
           icon="exchange"
         />
@@ -121,7 +121,7 @@ export function ResourcesPage({
                       </span>
                     </td>
                     <td>{node.snapshot.pid}</td>
-                    <td>{formatPercent(cpuHistorical?.score ?? 0)}</td>
+                    <td>{formatScore(cpuHistorical?.score ?? 0)}</td>
                     <td>
                       {formatPercent(
                         cpuHistorical?.metrics.averageUtilizationPercent ??
@@ -134,7 +134,7 @@ export function ResourcesPage({
                         cpuHistorical?.metrics.persistencePercent ?? 0,
                       )}
                     </td>
-                    <td>{formatPercent(ioHistorical?.score ?? 0)}</td>
+                    <td>{formatScore(ioHistorical?.score ?? 0)}</td>
                     <td>
                       {formatPercent(
                         ioHistorical?.metrics.persistencePercent ?? 0,
