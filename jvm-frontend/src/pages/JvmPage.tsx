@@ -27,6 +27,7 @@ import {
   formatCompact,
   formatNanos,
   formatPercent,
+  formatScore,
   formatTimestamp,
   percentage,
 } from '../utils/format';
@@ -177,7 +178,7 @@ function OverviewTab({
 
         <MetricCard
           label="Leak score"
-          value={snapshot.delta?.leakScore ?? 0}
+          value={formatScore(snapshot.delta?.leakScore ?? 0)}
           detail={snapshot.delta?.leakSeverity ?? 'No elevated risk'}
           icon="warning-sign"
           accent={
@@ -373,145 +374,6 @@ function ThreadsTab({
           </div>
         </section>
       ) : null}
-
-      <section className="metric-grid">
-        <MetricCard
-          label="CPU pressure"
-          value={formatPercent(delta.cpuAnalysis?.score ?? 0)}
-          detail={delta.cpuAnalysis?.scoreLabel ?? 'Waiting for process history'}
-          icon="dashboard"
-          accent="accent"
-        />
-        <MetricCard
-          label="CPU persistence"
-          value={formatPercent(
-            delta.cpuAnalysis?.metrics.persistencePercent ?? 0,
-          )}
-          detail={`avg ${formatPercent(
-            delta.cpuAnalysis?.metrics.averageUtilizationPercent ?? 0,
-          )} · peak ${formatPercent(
-            delta.cpuAnalysis?.metrics.peakUtilizationPercent ?? 0,
-          )}`}
-          icon="timeline-line-chart"
-        />
-        <MetricCard
-          label="I/O activity"
-          value={formatPercent(delta.ioAnalysis?.score ?? 0)}
-          detail={delta.ioAnalysis?.scoreLabel ?? 'Waiting for process history'}
-          icon="exchange"
-        />
-        <MetricCard
-          label="I/O persistence"
-          value={formatPercent(
-            delta.ioAnalysis?.metrics.persistencePercent ?? 0,
-          )}
-          detail={`${formatBytes(
-            delta.ioAnalysis?.metrics.latestThroughputBytesPerSecond ?? 0,
-          )}/s latest`}
-          icon="history"
-        />
-      </section>
-
-      <section className="split-grid">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">CPU analysis</span>
-              <h3>Historical process behavior</h3>
-            </div>
-          </div>
-
-          <div className="evidence-list">
-            {delta.cpuAnalysis?.evidence.map((signal) => (
-              <div className="evidence-row" key={signal.name}>
-                <Icon icon={signal.available ? 'dot' : 'disable'} size={18} />
-                <span>
-                  <strong>{signal.name}</strong> ·{' '}
-                  {signal.available
-                    ? formatPercent(signal.value * 100)
-                    : 'unavailable'}{' '}
-                  · {signal.description}
-                </span>
-              </div>
-            ))}
-            {delta.cpuAnalysis?.reasons.map((reason, index) => (
-              <div className="evidence-row" key={`cpu-reason:${index}`}>
-                <Icon icon="info-sign" size={16} />
-                <span>{reason}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">I/O analysis</span>
-              <h3>Historical process behavior</h3>
-            </div>
-          </div>
-
-          <div className="delta-grid">
-            <div>
-              <span>Read payload</span>
-              <strong>
-                {formatBytes(
-                  delta.ioAnalysis?.metrics.averageReadBytesPerSyscall ?? 0,
-                )}
-              </strong>
-              <small>average bytes / read syscall</small>
-            </div>
-            <div>
-              <span>Write payload</span>
-              <strong>
-                {formatBytes(
-                  delta.ioAnalysis?.metrics.averageWriteBytesPerSyscall ?? 0,
-                )}
-              </strong>
-              <small>average bytes / write syscall</small>
-            </div>
-            <div>
-              <span>Storage read ratio</span>
-              <strong>
-                {formatPercent(
-                  delta.ioAnalysis?.metrics.storageReadRatioPercent ?? 0,
-                )}
-              </strong>
-              <small>storage bytes / requested bytes</small>
-            </div>
-            <div>
-              <span>Storage write ratio</span>
-              <strong>
-                {formatPercent(
-                  delta.ioAnalysis?.metrics.storageWriteRatioPercent ?? 0,
-                )}
-              </strong>
-              <small>storage bytes / requested bytes</small>
-            </div>
-          </div>
-
-          <div className="evidence-list">
-            {delta.ioAnalysis?.evidence.map((signal) => (
-              <div className="evidence-row" key={signal.name}>
-                <Icon icon={signal.available ? 'dot' : 'disable'} size={18} />
-                <span>
-                  <strong>{signal.name}</strong> ·{' '}
-                  {signal.available
-                    ? formatPercent(signal.value * 100)
-                    : 'unavailable'}{' '}
-                  · {signal.description}
-                </span>
-              </div>
-            ))}
-            {delta.ioAnalysis?.reasons.map((reason, index) => (
-              <div className="evidence-row" key={`io-reason:${index}`}>
-                <Icon icon="info-sign" size={16} />
-                <span>{reason}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
 
       <section className="split-grid">
         <article className="panel">
@@ -896,8 +758,11 @@ function AnalysisTab({
   return (
     <>
       <section className="analysis-hero">
-        <div className="score-ring">
-          <strong>{delta.leakScore}</strong>
+        <div
+          className="score-ring"
+          title="EWMA-smoothed JVM memory-retention confidence from 0 to 100. Higher means multiple retention signals agree more strongly; it is not proof of a leak."
+        >
+          <strong>{formatScore(delta.leakScore)}</strong>
           <span>/ 100</span>
         </div>
 
@@ -917,6 +782,149 @@ function AnalysisTab({
             resulting deltas.
           </p>
         </div>
+      </section>
+
+      <section className="metric-grid">
+        <MetricCard
+          label="CPU pressure"
+          value={formatScore(delta.cpuAnalysis?.score ?? 0)}
+          detail={delta.cpuAnalysis?.scoreLabel ?? 'Waiting for process history'}
+          hint="Weighted historical CPU score from 0 to 100 using normalized utilization and persistence evidence. It describes sustained CPU pressure, not whether CPU usage is inherently bad."
+          icon="dashboard"
+          accent="accent"
+        />
+        <MetricCard
+          label="CPU persistence"
+          value={formatPercent(
+            delta.cpuAnalysis?.metrics.persistencePercent ?? 0,
+          )}
+          hint="Average CPU utilization divided by the recent-window peak. A value near 100% means CPU stayed close to its observed peak instead of appearing as a short spike."
+          detail={`avg ${formatPercent(
+            delta.cpuAnalysis?.metrics.averageUtilizationPercent ?? 0,
+          )} · peak ${formatPercent(
+            delta.cpuAnalysis?.metrics.peakUtilizationPercent ?? 0,
+          )}`}
+          icon="timeline-line-chart"
+        />
+        <MetricCard
+          label="I/O activity"
+          value={formatScore(delta.ioAnalysis?.score ?? 0)}
+          detail={delta.ioAnalysis?.scoreLabel ?? 'Waiting for process history'}
+          hint="Weighted historical I/O activity score from storage-throughput activity and syscall activity. It is relative to this process's recent behavior, not a universal disk-saturation score."
+          icon="exchange"
+        />
+        <MetricCard
+          label="I/O persistence"
+          value={formatPercent(
+            delta.ioAnalysis?.metrics.persistencePercent ?? 0,
+          )}
+          hint="How consistently storage throughput and syscall activity stayed near their recent-window peaks. Higher means sustained activity rather than one short burst."
+          detail={`${formatBytes(
+            delta.ioAnalysis?.metrics.latestThroughputBytesPerSecond ?? 0,
+          )}/s latest`}
+          icon="history"
+        />
+      </section>
+
+      <section className="split-grid">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">CPU analysis</span>
+              <h3>Historical process behavior</h3>
+            </div>
+          </div>
+
+          <div className="evidence-list">
+            {delta.cpuAnalysis?.evidence.map((signal) => (
+              <div className="evidence-row" key={signal.name}>
+                <Icon icon={signal.available ? 'dot' : 'disable'} size={18} />
+                <span>
+                  <strong>{signal.name}</strong> ·{' '}
+                  {signal.available
+                    ? formatPercent(signal.value * 100)
+                    : 'unavailable'}{' '}
+                  · {signal.description}
+                </span>
+              </div>
+            ))}
+            {delta.cpuAnalysis?.reasons.map((reason, index) => (
+              <div className="evidence-row" key={`cpu-reason:${index}`}>
+                <Icon icon="info-sign" size={16} />
+                <span>{reason}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">I/O analysis</span>
+              <h3>Historical process behavior</h3>
+            </div>
+          </div>
+
+          <div className="delta-grid">
+            <div>
+              <span>Read payload</span>
+              <strong>
+                {formatBytes(
+                  delta.ioAnalysis?.metrics.averageReadBytesPerSyscall ?? 0,
+                )}
+              </strong>
+              <small>average bytes / read syscall</small>
+            </div>
+            <div>
+              <span>Write payload</span>
+              <strong>
+                {formatBytes(
+                  delta.ioAnalysis?.metrics.averageWriteBytesPerSyscall ?? 0,
+                )}
+              </strong>
+              <small>average bytes / write syscall</small>
+            </div>
+            <div>
+              <span>Storage read ratio</span>
+              <strong>
+                {formatPercent(
+                  delta.ioAnalysis?.metrics.storageReadRatioPercent ?? 0,
+                )}
+              </strong>
+              <small>storage bytes / requested bytes</small>
+            </div>
+            <div>
+              <span>Storage write ratio</span>
+              <strong>
+                {formatPercent(
+                  delta.ioAnalysis?.metrics.storageWriteRatioPercent ?? 0,
+                )}
+              </strong>
+              <small>storage bytes / requested bytes</small>
+            </div>
+          </div>
+
+          <div className="evidence-list">
+            {delta.ioAnalysis?.evidence.map((signal) => (
+              <div className="evidence-row" key={signal.name}>
+                <Icon icon={signal.available ? 'dot' : 'disable'} size={18} />
+                <span>
+                  <strong>{signal.name}</strong> ·{' '}
+                  {signal.available
+                    ? formatPercent(signal.value * 100)
+                    : 'unavailable'}{' '}
+                  · {signal.description}
+                </span>
+              </div>
+            ))}
+            {delta.ioAnalysis?.reasons.map((reason, index) => (
+              <div className="evidence-row" key={`io-reason:${index}`}>
+                <Icon icon="info-sign" size={16} />
+                <span>{reason}</span>
+              </div>
+            ))}
+          </div>
+        </article>
       </section>
 
       <section className="split-grid">

@@ -70,6 +70,14 @@ export function formatPercent(value: number): string {
   return `${value.toFixed(Math.abs(value) >= 10 ? 0 : 1)}%`;
 }
 
+export function formatScore(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '0.00';
+  }
+
+  return value.toFixed(2);
+}
+
 export function percentage(
   used: number,
   max: number,

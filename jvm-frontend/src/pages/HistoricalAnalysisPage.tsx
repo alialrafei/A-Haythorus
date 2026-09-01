@@ -19,6 +19,7 @@ import { MetricCard } from '../components/common/MetricCard';
 import {
   formatBytes,
   formatPercent,
+  formatScore,
   toEpochMillis,
 } from '../utils/format';
 
@@ -113,27 +114,43 @@ function PodHistorySection({
       <section className="metric-grid">
         <MetricCard
           label="Historical leak confidence"
-          value={summary.latestConfidence}
-          detail={`${samples.length} backend samples`}
+          value={formatScore(summary.latestConfidence)}
+          detail={`${samples.length} retained backend samples`}
+          hint="EWMA-smoothed memory-retention confidence from 0 to 100. This is evidence strength, not proof of a leak."
           icon="timeline-line-chart"
           accent={summary.latestConfidence >= 60 ? 'warning' : 'good'}
         />
         <MetricCard
-          label="Window heap movement"
-          value={formatBytes(summary.netHeapGrowth)}
-          detail={`${summary.windowSeconds.toFixed(1)} s observed`}
+          label="Analyzer-window heap change"
+          value={formatBytes(
+            latestJvm?.delta?.windowHeapGrowthBytes ?? summary.netHeapGrowth,
+          )}
+          detail={
+            latestJvm?.delta
+              ? 'net heap change used by the leak analyzer'
+              : `${summary.windowSeconds.toFixed(1)} s retained history`
+          }
+          hint="Latest heap used minus the first heap used inside the configured leak-analysis window. Positive means the heap ended the analysis window higher; it does not mean that many bytes were allocated."
           icon="database"
         />
         <MetricCard
-          label="Growth persistence"
-          value={formatPercent(summary.persistence * 100)}
-          detail={`${summary.positiveIntervals}/${summary.intervals} positive intervals`}
+          label="Heap-growth persistence"
+          value={formatPercent(
+            (latestJvm?.delta?.heapGrowthPersistence ?? summary.persistence) * 100,
+          )}
+          detail={
+            latestJvm?.delta
+              ? 'fraction of analyzer intervals that moved upward'
+              : `${summary.positiveIntervals}/${summary.intervals} retained-history intervals`
+          }
+          hint="Number of intervals with positive heap movement divided by total intervals in the analysis window. 100% means every observed interval ended higher than the previous one."
           icon="series-search"
         />
         <MetricCard
-          label="Old-gen movement"
+          label="Retained-history old-gen change"
           value={formatBytes(summary.oldGenGrowth)}
-          detail={`${summary.gcCollections} GC collections in window`}
+          detail={`${summary.windowSeconds.toFixed(1)} s retained history`}
+          hint="Latest old-generation usage minus the oldest retained-history value shown on this page. This card describes the retained chart history, not necessarily the shorter leak-analysis window."
           icon="refresh"
         />
       </section>
@@ -180,8 +197,8 @@ function PodHistorySection({
               </div>
               <div>
                 <span>Instant evidence</span>
-                <strong>{latestJvm.delta.instantaneousLeakScore}</strong>
-                <small>before historical smoothing</small>
+                <strong title="Current-window leak evidence after window-maturity scaling, before EWMA smoothing.">{formatScore(latestJvm.delta.instantaneousLeakScore)}</strong>
+                <small>current-window evidence before EWMA</small>
               </div>
             </div>
           ) : (
