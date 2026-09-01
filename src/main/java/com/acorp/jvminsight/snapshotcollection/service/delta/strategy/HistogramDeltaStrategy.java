@@ -14,18 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Computes object growth between snapshots.
+ * Computes class-histogram movement between snapshots.
  *
- * <p>Matching is performed by class name.
- *
- * <p>Produces:
- *
- * <ul>
- *   <li>Byte growth
- *   <li>Instance growth
- * </ul>
- *
- * Results are sorted descending by byte growth.
+ * <p>Analysis aggregates are calculated from every matched class before UI-oriented top-N
+ * truncation. This prevents reclaimed classes from disappearing from the leak-evidence math.
  */
 public final class HistogramDeltaStrategy implements DeltaComputationStrategy {
 
@@ -38,46 +30,60 @@ public final class HistogramDeltaStrategy implements DeltaComputationStrategy {
       LOGGER.debug("Skipping histogram delta computation.");
       return;
     }
-    Map<String, ClassHistogramEntry> previousMap = toMap(previous.getHistogram());
 
+    Map<String, ClassHistogramEntry> previousMap = toMap(previous.getHistogram());
     List<HistogramDelta> deltas = new ArrayList<>();
+
+    long positiveBytes = 0L;
+    long reclaimedBytes = 0L;
+    long topPositiveBytes = 0L;
+
     for (ClassHistogramEntry currentEntry : current.getHistogram()) {
       ClassHistogramEntry previousEntry = previousMap.get(currentEntry.getClassName());
       if (previousEntry == null) {
         continue;
       }
+
       long bytesDelta = currentEntry.getBytes() - previousEntry.getBytes();
       long instancesDelta = currentEntry.getInstances() - previousEntry.getInstances();
-      if (bytesDelta <= 0 && instancesDelta <= 0) {
+
+      if (bytesDelta == 0L && instancesDelta == 0L) {
         continue;
       }
+
+      if (bytesDelta > 0L) {
+        positiveBytes += bytesDelta;
+        topPositiveBytes = Math.max(topPositiveBytes, bytesDelta);
+      } else if (bytesDelta < 0L) {
+        reclaimedBytes += -bytesDelta;
+      }
+
       HistogramDelta histogramDelta = new HistogramDelta();
       histogramDelta.setClassName(currentEntry.getClassName());
       histogramDelta.setPreviousBytes(previousEntry.getBytes());
-
       histogramDelta.setCurrentBytes(currentEntry.getBytes());
-
       histogramDelta.setBytesDelta(bytesDelta);
-
       histogramDelta.setPreviousInstances(previousEntry.getInstances());
-
       histogramDelta.setCurrentInstances(currentEntry.getInstances());
-
       histogramDelta.setInstancesDelta(instancesDelta);
       deltas.add(histogramDelta);
     }
-    deltas.sort(Comparator.comparingLong(HistogramDelta::getBytesDelta).reversed());
 
+    delta.setHistogramPositiveBytes(positiveBytes);
+    delta.setHistogramReclaimedBytes(reclaimedBytes);
+    delta.setHistogramTopClassPositiveBytes(topPositiveBytes);
+
+    deltas.sort(Comparator.comparingLong(HistogramDelta::getBytesDelta).reversed());
     if (deltas.size() > TOP_CLASSES) {
-      deltas = deltas.subList(0, TOP_CLASSES);
+      deltas = new ArrayList<>(deltas.subList(0, TOP_CLASSES));
     }
+
     delta.setHistogramDelta(deltas);
     LOGGER.debug("Computed {} histogram deltas.", deltas.size());
   }
 
   private Map<String, ClassHistogramEntry> toMap(List<ClassHistogramEntry> histogram) {
     Map<String, ClassHistogramEntry> map = new HashMap<>(histogram.size());
-
     for (ClassHistogramEntry entry : histogram) {
       map.put(entry.getClassName(), entry);
     }

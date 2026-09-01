@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.dto.delta;
 
+import com.acorp.jvminsight.snapshotcollection.dto.analysis.AnalysisResult;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -33,12 +34,23 @@ public class JvmDeltaSnapshot {
   private List<HistogramDelta> histogramDelta;
   private List<MemoryPoolDelta> poolDelta;
 
+  /** Aggregate histogram byte movement across all matched classes before top-N truncation. */
+  private long histogramPositiveBytes;
+  private long histogramReclaimedBytes;
+  private long histogramTopClassPositiveBytes;
+
   private int currentDeadlockCount;
   private int deadlockDelta;
 
   private LeakSeverity leakSeverity;
   private CpuDeltaSnapshot cpuDelta;
   private IoDeltaSnapshot ioDelta;
+
+  /** Runtime-neutral historical CPU analysis. */
+  private AnalysisResult cpuAnalysis;
+
+  /** Runtime-neutral historical I/O analysis. */
+  private AnalysisResult ioAnalysis;
 
   /** Evidence score calculated from the current historical analysis window before smoothing. */
   private double instantaneousLeakScore;

@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class CpuDeltaStrategy implements DeltaComputationStrategy {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(CpuDeltaStrategy.class);
-  private static final int TOP_THREADS = ConfigLoader.getInt("analysis.cpu.top-threads", 10);
+  private static final int TOP_THREADS = Math.max(1, ConfigLoader.getInt("analysis.cpu.top-threads", 10));
 
   @Override
   public void compute(JvmSnapshot previous, JvmSnapshot current, JvmDeltaSnapshot delta) {
