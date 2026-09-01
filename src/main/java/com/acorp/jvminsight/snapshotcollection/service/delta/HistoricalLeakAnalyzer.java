@@ -9,6 +9,7 @@ import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.analysis.EvidenceSignal;
+import com.acorp.jvminsight.snapshotcollection.service.analysis.WeightedEvidenceScore;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.HistogramDelta;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.LeakSeverity;
@@ -38,22 +39,22 @@ public final class HistoricalLeakAnalyzer {
   private static final double HISTORICAL_WEIGHT = 1.0 - ALPHA;
 
   private static final double HEAP_RETENTION_WEIGHT =
-      nonNegativeWeight(
+      WeightedEvidenceScore.requireNonNegativeWeight(
           "analysis.memory.heap-retention.weight",
           ConfigLoader.getDouble("analysis.memory.heap-retention.weight", 1.0));
 
   private static final double OLD_GEN_RETENTION_WEIGHT =
-      nonNegativeWeight(
+      WeightedEvidenceScore.requireNonNegativeWeight(
           "analysis.memory.old-gen-retention.weight",
           ConfigLoader.getDouble("analysis.memory.old-gen-retention.weight", 1.0));
 
   private static final double GC_RECLAIM_WEIGHT =
-      nonNegativeWeight(
+      WeightedEvidenceScore.requireNonNegativeWeight(
           "analysis.memory.gc-reclaim.weight",
           ConfigLoader.getDouble("analysis.memory.gc-reclaim.weight", 1.0));
 
   private static final double HISTOGRAM_GROWTH_WEIGHT =
-      nonNegativeWeight(
+      WeightedEvidenceScore.requireNonNegativeWeight(
           "analysis.memory.histogram-growth.weight",
           ConfigLoader.getDouble("analysis.memory.histogram-growth.weight", 1.0));
 
@@ -87,11 +88,11 @@ public final class HistoricalLeakAnalyzer {
     EvidenceSignal histogram = histogramEvidence(delta, reasons);
 
     double normalizedEvidence =
-        weightedAvailableEvidence(
-            weighted(heap, HEAP_RETENTION_WEIGHT),
-            weighted(oldGen, OLD_GEN_RETENTION_WEIGHT),
-            weighted(gc, GC_RECLAIM_WEIGHT),
-            weighted(histogram, HISTOGRAM_GROWTH_WEIGHT));
+        WeightedEvidenceScore.calculate(
+            WeightedEvidenceScore.weighted(heap, HEAP_RETENTION_WEIGHT),
+            WeightedEvidenceScore.weighted(oldGen, OLD_GEN_RETENTION_WEIGHT),
+            WeightedEvidenceScore.weighted(gc, GC_RECLAIM_WEIGHT),
+            WeightedEvidenceScore.weighted(histogram, HISTOGRAM_GROWTH_WEIGHT));
     double rawEvidenceScore = normalizedEvidence * 100.0;
     double maturity = windowMaturity(window);
     double instantaneousScore = rawEvidenceScore * maturity;
@@ -299,46 +300,6 @@ public final class HistoricalLeakAnalyzer {
         "Upward class-histogram dominance and top growing-class concentration.");
   }
 
-  /**
-   * Weighted evidence aggregation:
-   *
-   * <pre>
-   * E = sum(w_i * E_i) / sum(w_i)
-   * </pre>
-   *
-   * <p>Only available signals participate. A zero-weight signal is intentionally disabled.
-   */
-  private static double weightedAvailableEvidence(WeightedSignal... signals) {
-    double weightedSum = 0.0;
-    double totalWeight = 0.0;
-
-    for (WeightedSignal weightedSignal : signals) {
-      EvidenceSignal signal = weightedSignal.signal();
-      double weight = weightedSignal.weight();
-
-      if (!signal.available() || weight <= 0.0) {
-        continue;
-      }
-
-      weightedSum += weight * clamp01(signal.value());
-      totalWeight += weight;
-    }
-
-    return totalWeight == 0.0 ? 0.0 : weightedSum / totalWeight;
-  }
-
-  private static WeightedSignal weighted(EvidenceSignal signal, double weight) {
-    return new WeightedSignal(signal, weight);
-  }
-
-  private static double nonNegativeWeight(String key, double weight) {
-    if (weight < 0.0) {
-      throw new IllegalStateException(
-          "Configuration '" + key + "' must be greater than or equal to 0.");
-    }
-    return weight;
-  }
-
   private static double mean(double first, double second) {
     return (clamp01(first) + clamp01(second)) / 2.0;
   }
@@ -480,7 +441,6 @@ public final class HistoricalLeakAnalyzer {
     delta.setRecommendations(List.of());
   }
 
-  private record WeightedSignal(EvidenceSignal signal, double weight) {}
 
   private record Trend(
       long first,
