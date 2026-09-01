@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.analysis;
 
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.ProcessHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.analysis.AnalysisResult;
 import com.acorp.jvminsight.snapshotcollection.dto.analysis.EvidenceSignal;
@@ -35,6 +36,16 @@ import java.util.Map;
  */
 public final class IoAnalyzer {
 
+  private static final double STORAGE_ACTIVITY_WEIGHT =
+      WeightedEvidenceScore.requireNonNegativeWeight(
+          "analysis.io.storage-activity.weight",
+          ConfigLoader.getDouble("analysis.io.storage-activity.weight", 1.0));
+
+  private static final double SYSCALL_ACTIVITY_WEIGHT =
+      WeightedEvidenceScore.requireNonNegativeWeight(
+          "analysis.io.syscall-activity.weight",
+          ConfigLoader.getDouble("analysis.io.syscall-activity.weight", 1.0));
+
   private IoAnalyzer() {}
 
   public static AnalysisResult analyze(List<ProcessHistorySample> samples) {
@@ -48,8 +59,6 @@ public final class IoAnalyzer {
         analyzeSeries(intervals.stream().mapToDouble(IoInterval::storageBytesPerSecond).toArray());
     SeriesAnalysis syscalls =
         analyzeSeries(intervals.stream().mapToDouble(IoInterval::syscallsPerSecond).toArray());
-
-    double activity = mean(storage.activity(), syscalls.activity());
 
     long readCharacters = intervals.stream().mapToLong(IoInterval::readCharacters).sum();
     long writeCharacters = intervals.stream().mapToLong(IoInterval::writeCharacters).sum();
@@ -78,6 +87,11 @@ public final class IoAnalyzer {
                 "syscall-io-activity",
                 syscalls.activity(),
                 "Sustained read/write syscall rate relative to this process's recent window."));
+
+    double activity =
+        WeightedEvidenceScore.calculate(
+            WeightedEvidenceScore.weighted(evidence.get(0), STORAGE_ACTIVITY_WEIGHT),
+            WeightedEvidenceScore.weighted(evidence.get(1), SYSCALL_ACTIVITY_WEIGHT));
 
     Map<String, Double> metrics =
         Map.ofEntries(
