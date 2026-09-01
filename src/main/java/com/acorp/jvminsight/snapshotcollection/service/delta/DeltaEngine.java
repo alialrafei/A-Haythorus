@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.delta;
 
+import com.acorp.jvminsight.runtime.jvm.JvmProcessHistoryAdapter;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.ProcessHistorySample;
@@ -86,7 +87,7 @@ public final class DeltaEngine {
     try {
       List<ProcessHistorySample> processHistory = new ArrayList<>(retainedHistory.size() + 1);
       retainedHistory.stream().map(JvmHistorySample::process).forEach(processHistory::add);
-      processHistory.add(ProcessHistorySample.from(current));
+      processHistory.add(JvmProcessHistoryAdapter.from(current));
 
       ProcessAnalysisSnapshot processAnalysis = RuntimeAnalysisEngine.analyze(processHistory);
       delta.setCpuAnalysis(processAnalysis.cpu());
