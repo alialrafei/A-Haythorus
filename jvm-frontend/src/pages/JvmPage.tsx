@@ -758,7 +758,10 @@ function AnalysisTab({
   return (
     <>
       <section className="analysis-hero">
-        <div className="score-ring">
+        <div
+          className="score-ring"
+          title="EWMA-smoothed JVM memory-retention confidence from 0 to 100. Higher means multiple retention signals agree more strongly; it is not proof of a leak."
+        >
           <strong>{formatScore(delta.leakScore)}</strong>
           <span>/ 100</span>
         </div>
@@ -786,6 +789,7 @@ function AnalysisTab({
           label="CPU pressure"
           value={formatScore(delta.cpuAnalysis?.score ?? 0)}
           detail={delta.cpuAnalysis?.scoreLabel ?? 'Waiting for process history'}
+          hint="Weighted historical CPU score from 0 to 100 using normalized utilization and persistence evidence. It describes sustained CPU pressure, not whether CPU usage is inherently bad."
           icon="dashboard"
           accent="accent"
         />
@@ -794,6 +798,7 @@ function AnalysisTab({
           value={formatPercent(
             delta.cpuAnalysis?.metrics.persistencePercent ?? 0,
           )}
+          hint="Average CPU utilization divided by the recent-window peak. A value near 100% means CPU stayed close to its observed peak instead of appearing as a short spike."
           detail={`avg ${formatPercent(
             delta.cpuAnalysis?.metrics.averageUtilizationPercent ?? 0,
           )} · peak ${formatPercent(
@@ -805,6 +810,7 @@ function AnalysisTab({
           label="I/O activity"
           value={formatScore(delta.ioAnalysis?.score ?? 0)}
           detail={delta.ioAnalysis?.scoreLabel ?? 'Waiting for process history'}
+          hint="Weighted historical I/O activity score from storage-throughput activity and syscall activity. It is relative to this process's recent behavior, not a universal disk-saturation score."
           icon="exchange"
         />
         <MetricCard
@@ -812,6 +818,7 @@ function AnalysisTab({
           value={formatPercent(
             delta.ioAnalysis?.metrics.persistencePercent ?? 0,
           )}
+          hint="How consistently storage throughput and syscall activity stayed near their recent-window peaks. Higher means sustained activity rather than one short burst."
           detail={`${formatBytes(
             delta.ioAnalysis?.metrics.latestThroughputBytesPerSecond ?? 0,
           )}/s latest`}
