@@ -10,9 +10,9 @@
   --border: rgba(148, 163, 184, 0.12);
   --border-strong: rgba(148, 163, 184, 0.22);
 
-  --text-primary: #f5f7fb;
-  --text-secondary: #b1bbca;
-  --text-muted: #738096;
+  --text-primary: #ffffff;
+  --text-secondary: #ffffff;
+  --text-muted: #ffffff;
 
   --accent: #7c6cff;
   --accent-soft: rgba(124, 108, 255, 0.13);
@@ -29,6 +29,33 @@
     0 8px 24px rgba(0, 0, 0, 0.16);
   --shadow-lg:
     0 18px 60px rgba(0, 0, 0, 0.34);
+}
+
+:root:not([data-theme='light']) {
+  --text-primary: #ffffff;
+  --text-secondary: #ffffff;
+  --text-muted: #ffffff;
+}
+
+/*
+ * Dark-mode readability rule:
+ * all textual content is white. Semantic colors remain available
+ * for icons, dots, borders, fills, charts, and background accents.
+ */
+:root:not([data-theme='light']) .eyebrow,
+:root:not([data-theme='light']) .brand-mark,
+:root:not([data-theme='light']) .nav-item-active,
+:root:not([data-theme='light']) .status-badge,
+:root:not([data-theme='light']) .status-healthy,
+:root:not([data-theme='light']) .status-low,
+:root:not([data-theme='light']) .status-medium,
+:root:not([data-theme='light']) .status-high,
+:root:not([data-theme='light']) .status-critical,
+:root:not([data-theme='light']) .metric-accent .metric-icon,
+:root:not([data-theme='light']) .metric-good .metric-icon,
+:root:not([data-theme='light']) .metric-warning .metric-icon,
+:root:not([data-theme='light']) .metric-danger .metric-icon {
+  color: #ffffff;
 }
 
 :root[data-theme='light'] {
