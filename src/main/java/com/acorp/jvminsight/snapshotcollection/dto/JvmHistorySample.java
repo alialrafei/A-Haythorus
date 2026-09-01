@@ -7,8 +7,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lightweight historical sample used for trend analysis without retaining heavy thread dumps or
- * histograms.
+ * Lightweight JVM history.
+ *
+ * <p>Runtime-neutral process counters live in {@link ProcessHistorySample}. JVM-only memory, GC,
+ * and thread state remain here.
  */
 public record JvmHistorySample(
     Instant timestamp,
@@ -17,6 +19,7 @@ public record JvmHistorySample(
     long oldGenerationUsed,
     long threadCount,
     Map<String, Long> gcCollectionCounts,
+    ProcessHistorySample process,
     long processCpuTimeNanos,
     long processReadBytes,
     long processWriteBytes,
@@ -46,11 +49,8 @@ public record JvmHistorySample(
       }
     }
 
-    long processCpuTimeNanos =
-        snapshot.getProcessCpu() == null ? 0 : snapshot.getProcessCpu().processCpuTimeNanos();
-    long readBytes = snapshot.getProcessIo() == null ? 0 : snapshot.getProcessIo().readBytes();
-    long writeBytes = snapshot.getProcessIo() == null ? 0 : snapshot.getProcessIo().writeBytes();
-    double confidence = snapshot.getDelta() == null ? 0 : snapshot.getDelta().getLeakScore();
+    ProcessHistorySample process = ProcessHistorySample.from(snapshot);
+    double confidence = snapshot.getDelta() == null ? 0.0 : snapshot.getDelta().getLeakScore();
 
     return new JvmHistorySample(
         snapshot.getTimestamp(),
@@ -59,9 +59,10 @@ public record JvmHistorySample(
         oldGen,
         snapshot.getThreadCount(),
         Map.copyOf(gcCounts),
-        processCpuTimeNanos,
-        readBytes,
-        writeBytes,
+        process,
+        process.cpuTimeNanos(),
+        process.readBytes(),
+        process.writeBytes(),
         confidence);
   }
 }
