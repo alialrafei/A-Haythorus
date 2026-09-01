@@ -174,6 +174,34 @@ export interface Recommendation {
   evidence: string[] | null;
 }
 
+export interface EvidenceSignal {
+  name: string;
+  value: number;
+  available: boolean;
+  description: string;
+}
+
+export interface AnalysisResult {
+  domain: string;
+  scoreLabel: string;
+  score: number;
+  evidence: EvidenceSignal[];
+  metrics: Record<string, number>;
+  reasons: string[];
+}
+
+export interface ProcessHistorySample {
+  timestamp: TimestampValue;
+  cpuTimeNanos: number;
+  availableProcessors: number;
+  readCharacters: number;
+  writeCharacters: number;
+  readSyscalls: number;
+  writeSyscalls: number;
+  readBytes: number;
+  writeBytes: number;
+}
+
 export interface JvmDeltaSnapshot {
   intervalMillis: number;
   previousHeapUsed: number;
@@ -195,11 +223,16 @@ export interface JvmDeltaSnapshot {
   gcDelta: GcDeltaSnapshot[];
   histogramDelta: HistogramDelta[];
   poolDelta: MemoryPoolDelta[];
+  histogramPositiveBytes: number;
+  histogramReclaimedBytes: number;
+  histogramTopClassPositiveBytes: number;
   currentDeadlockCount: number;
   deadlockDelta: number;
   leakSeverity: string | null;
   cpuDelta: CpuDeltaSnapshot | null;
   ioDelta: IoDeltaSnapshot | null;
+  cpuAnalysis: AnalysisResult | null;
+  ioAnalysis: AnalysisResult | null;
   instantaneousLeakScore: number;
   leakScore: number;
   heapGrowthPersistence: number;
@@ -235,6 +268,7 @@ export interface JvmHistorySample {
   oldGenerationUsed: number;
   threadCount: number;
   gcCollectionCounts: Record<string, number>;
+  process: ProcessHistorySample;
   processCpuTimeNanos: number;
   processReadBytes: number;
   processWriteBytes: number;
