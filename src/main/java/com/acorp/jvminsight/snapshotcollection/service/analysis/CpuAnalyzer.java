@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.analysis;
 
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.ProcessHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.analysis.AnalysisResult;
 import com.acorp.jvminsight.snapshotcollection.dto.analysis.EvidenceSignal;
@@ -34,6 +35,16 @@ import java.util.Map;
  */
 public final class CpuAnalyzer {
 
+  private static final double UTILIZATION_WEIGHT =
+      WeightedEvidenceScore.requireNonNegativeWeight(
+          "analysis.cpu.utilization.weight",
+          ConfigLoader.getDouble("analysis.cpu.utilization.weight", 1.0));
+
+  private static final double PERSISTENCE_WEIGHT =
+      WeightedEvidenceScore.requireNonNegativeWeight(
+          "analysis.cpu.persistence.weight",
+          ConfigLoader.getDouble("analysis.cpu.persistence.weight", 1.0));
+
   private CpuAnalyzer() {}
 
   public static AnalysisResult analyze(List<ProcessHistorySample> samples) {
@@ -46,8 +57,6 @@ public final class CpuAnalyzer {
     double mean = utilizations.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
     double peak = utilizations.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
     double persistence = peak <= 0.0 ? 0.0 : clamp01(mean / peak);
-    double sustainedPressure = clamp01(mean * persistence);
-
     List<EvidenceSignal> evidence =
         List.of(
             EvidenceSignal.available(
@@ -58,6 +67,11 @@ public final class CpuAnalyzer {
                 "cpu-persistence",
                 persistence,
                 "How close average utilization stayed to the observed peak."));
+
+    double sustainedPressure =
+        WeightedEvidenceScore.calculate(
+            WeightedEvidenceScore.weighted(evidence.get(0), UTILIZATION_WEIGHT),
+            WeightedEvidenceScore.weighted(evidence.get(1), PERSISTENCE_WEIGHT));
 
     Map<String, Double> metrics =
         Map.of(
