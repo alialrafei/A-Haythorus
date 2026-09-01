@@ -11,22 +11,27 @@ import java.util.Map;
 /**
  * Runtime-neutral historical Linux process I/O analyzer.
  *
- * <p>Absolute device pressure cannot be inferred safely without a device/cgroup capacity or an
- * application baseline. This analyzer therefore reports a clearly named recent-window activity
- * score instead of pretending throughput is universally "high".
+ * <p>Absolute device pressure cannot be inferred safely without device/cgroup capacity or an
+ * application baseline. This analyzer therefore reports recent-window sustained I/O activity.
+ *
+ * <p>For a generic positive interval series {@code x_i}:
  *
  * <pre>
- * throughput_i = (deltaReadBytes + deltaWriteBytes) / deltaSeconds
- * mean         = mean(throughput_i)
- * peak         = max(throughput_i)
- * persistence  = peak == 0 ? 0 : mean / peak
- * intensity    = peak == 0 ? 0 : latest / peak
- * activity     = intensity * persistence
+ * mean        = mean(x_i)
+ * peak        = max(x_i)
+ * persistence = peak == 0 ? 0 : mean / peak
+ * intensity   = peak == 0 ? 0 : latest / peak
+ * activity    = intensity * persistence
  * </pre>
  *
- * <p>It also derives syscall payload sizes and storage-to-requested-byte ratios to distinguish
- * many tiny syscalls from larger transfers and buffered/page-cache activity from attributed
- * storage I/O.
+ * <p>The formula is applied independently to:
+ *
+ * <ul>
+ *   <li>storage throughput: read_bytes + write_bytes per second
+ *   <li>syscall rate: read syscalls + write syscalls per second
+ * </ul>
+ *
+ * <p>The final I/O activity score is the equal mean of those available activity signals.
  */
 public final class IoAnalyzer {
 
@@ -39,16 +44,12 @@ public final class IoAnalyzer {
       return unavailable();
     }
 
-    double meanThroughput =
-        intervals.stream().mapToDouble(IoInterval::throughputBytesPerSecond).average().orElse(0.0);
-    double peakThroughput =
-        intervals.stream().mapToDouble(IoInterval::throughputBytesPerSecond).max().orElse(0.0);
-    double latestThroughput = intervals.get(intervals.size() - 1).throughputBytesPerSecond();
+    SeriesAnalysis storage =
+        analyzeSeries(intervals.stream().mapToDouble(IoInterval::storageBytesPerSecond).toArray());
+    SeriesAnalysis syscalls =
+        analyzeSeries(intervals.stream().mapToDouble(IoInterval::syscallsPerSecond).toArray());
 
-    double persistence = peakThroughput <= 0.0 ? 0.0 : clamp01(meanThroughput / peakThroughput);
-    double relativeIntensity =
-        peakThroughput <= 0.0 ? 0.0 : clamp01(latestThroughput / peakThroughput);
-    double activity = clamp01(relativeIntensity * persistence);
+    double activity = mean(storage.activity(), syscalls.activity());
 
     long readCharacters = intervals.stream().mapToLong(IoInterval::readCharacters).sum();
     long writeCharacters = intervals.stream().mapToLong(IoInterval::writeCharacters).sum();
@@ -58,32 +59,37 @@ public final class IoAnalyzer {
     long writeSyscalls = intervals.stream().mapToLong(IoInterval::writeSyscalls).sum();
 
     double averageReadPayload =
-        readSyscalls <= 0 ? 0.0 : readCharacters / (double) readSyscalls;
+        readSyscalls <= 0L ? 0.0 : readCharacters / (double) readSyscalls;
     double averageWritePayload =
-        writeSyscalls <= 0 ? 0.0 : writeCharacters / (double) writeSyscalls;
+        writeSyscalls <= 0L ? 0.0 : writeCharacters / (double) writeSyscalls;
 
     double storageReadRatio =
-        readCharacters <= 0 ? 0.0 : clamp01(readBytes / (double) readCharacters);
+        readCharacters <= 0L ? 0.0 : clamp01(readBytes / (double) readCharacters);
     double storageWriteRatio =
-        writeCharacters <= 0 ? 0.0 : clamp01(writeBytes / (double) writeCharacters);
+        writeCharacters <= 0L ? 0.0 : clamp01(writeBytes / (double) writeCharacters);
 
     List<EvidenceSignal> evidence =
         List.of(
             EvidenceSignal.available(
-                "io-relative-intensity",
-                relativeIntensity,
-                "Latest storage throughput relative to the recent-window peak."),
+                "storage-io-activity",
+                storage.activity(),
+                "Sustained physical storage throughput relative to this process's recent window."),
             EvidenceSignal.available(
-                "io-persistence",
-                persistence,
-                "Average storage throughput relative to the recent-window peak."));
+                "syscall-io-activity",
+                syscalls.activity(),
+                "Sustained read/write syscall rate relative to this process's recent window."));
 
     Map<String, Double> metrics =
         Map.ofEntries(
-            Map.entry("latestThroughputBytesPerSecond", latestThroughput),
-            Map.entry("averageThroughputBytesPerSecond", meanThroughput),
-            Map.entry("peakThroughputBytesPerSecond", peakThroughput),
-            Map.entry("persistencePercent", persistence * 100.0),
+            Map.entry("latestThroughputBytesPerSecond", storage.latest()),
+            Map.entry("averageThroughputBytesPerSecond", storage.mean()),
+            Map.entry("peakThroughputBytesPerSecond", storage.peak()),
+            Map.entry("storagePersistencePercent", storage.persistence() * 100.0),
+            Map.entry("latestSyscallsPerSecond", syscalls.latest()),
+            Map.entry("averageSyscallsPerSecond", syscalls.mean()),
+            Map.entry("peakSyscallsPerSecond", syscalls.peak()),
+            Map.entry("syscallPersistencePercent", syscalls.persistence() * 100.0),
+            Map.entry("persistencePercent", mean(storage.persistence(), syscalls.persistence()) * 100.0),
             Map.entry("averageReadBytesPerSyscall", averageReadPayload),
             Map.entry("averageWriteBytesPerSyscall", averageWritePayload),
             Map.entry("storageReadRatioPercent", storageReadRatio * 100.0),
@@ -93,8 +99,11 @@ public final class IoAnalyzer {
     List<String> reasons =
         List.of(
             String.format(
-                "Current storage throughput is %.0f%% of the recent peak with %.0f%% persistence.",
-                relativeIntensity * 100.0, persistence * 100.0),
+                "Storage I/O is at %.0f%% of its recent peak with %.0f%% persistence.",
+                storage.intensity() * 100.0, storage.persistence() * 100.0),
+            String.format(
+                "I/O syscall rate is at %.0f%% of its recent peak with %.0f%% persistence.",
+                syscalls.intensity() * 100.0, syscalls.persistence() * 100.0),
             String.format(
                 "Average syscall payloads are %.0f read bytes and %.0f write bytes.",
                 averageReadPayload, averageWritePayload));
@@ -106,6 +115,29 @@ public final class IoAnalyzer {
         evidence,
         metrics,
         reasons);
+  }
+
+  private static SeriesAnalysis analyzeSeries(double[] values) {
+    if (values.length == 0) {
+      return SeriesAnalysis.EMPTY;
+    }
+
+    double total = 0.0;
+    double peak = 0.0;
+
+    for (double value : values) {
+      double nonNegative = Math.max(0.0, value);
+      total += nonNegative;
+      peak = Math.max(peak, nonNegative);
+    }
+
+    double mean = total / values.length;
+    double latest = Math.max(0.0, values[values.length - 1]);
+    double persistence = peak <= 0.0 ? 0.0 : clamp01(mean / peak);
+    double intensity = peak <= 0.0 ? 0.0 : clamp01(latest / peak);
+    double activity = clamp01(intensity * persistence);
+
+    return new SeriesAnalysis(mean, peak, latest, persistence, intensity, activity);
   }
 
   private static List<IoInterval> intervals(List<ProcessHistorySample> samples) {
@@ -122,7 +154,9 @@ public final class IoAnalyzer {
       }
 
       double seconds =
-          Duration.between(previous.timestamp(), current.timestamp()).toNanos() / 1_000_000_000.0;
+          Duration.between(previous.timestamp(), current.timestamp()).toNanos()
+              / 1_000_000_000.0;
+
       if (seconds <= 0.0) {
         continue;
       }
@@ -130,13 +164,15 @@ public final class IoAnalyzer {
       long readBytes = nonNegativeDelta(previous.readBytes(), current.readBytes());
       long writeBytes = nonNegativeDelta(previous.writeBytes(), current.writeBytes());
       long readCharacters = nonNegativeDelta(previous.readCharacters(), current.readCharacters());
-      long writeCharacters = nonNegativeDelta(previous.writeCharacters(), current.writeCharacters());
+      long writeCharacters =
+          nonNegativeDelta(previous.writeCharacters(), current.writeCharacters());
       long readSyscalls = nonNegativeDelta(previous.readSyscalls(), current.readSyscalls());
       long writeSyscalls = nonNegativeDelta(previous.writeSyscalls(), current.writeSyscalls());
 
       result.add(
           new IoInterval(
               (readBytes + writeBytes) / seconds,
+              (readSyscalls + writeSyscalls) / seconds,
               readCharacters,
               writeCharacters,
               readSyscalls,
@@ -152,6 +188,10 @@ public final class IoAnalyzer {
     return Math.max(0L, current - previous);
   }
 
+  private static double mean(double first, double second) {
+    return (clamp01(first) + clamp01(second)) / 2.0;
+  }
+
   private static AnalysisResult unavailable() {
     return new AnalysisResult(
         "io",
@@ -159,9 +199,9 @@ public final class IoAnalyzer {
         0.0,
         List.of(
             EvidenceSignal.unavailable(
-                "io-relative-intensity", "Insufficient process I/O history."),
+                "storage-io-activity", "Insufficient process I/O history."),
             EvidenceSignal.unavailable(
-                "io-persistence", "Insufficient process I/O history.")),
+                "syscall-io-activity", "Insufficient process I/O history.")),
         Map.of(),
         List.of("Insufficient process I/O history to evaluate recent activity."));
   }
@@ -170,8 +210,20 @@ public final class IoAnalyzer {
     return Math.max(0.0, Math.min(1.0, value));
   }
 
+  private record SeriesAnalysis(
+      double mean,
+      double peak,
+      double latest,
+      double persistence,
+      double intensity,
+      double activity) {
+    private static final SeriesAnalysis EMPTY =
+        new SeriesAnalysis(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  }
+
   private record IoInterval(
-      double throughputBytesPerSecond,
+      double storageBytesPerSecond,
+      double syscallsPerSecond,
       long readCharacters,
       long writeCharacters,
       long readSyscalls,
