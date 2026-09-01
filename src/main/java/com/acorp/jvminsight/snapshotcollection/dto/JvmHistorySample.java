@@ -1,6 +1,7 @@
 package com.acorp.jvminsight.snapshotcollection.dto;
 
 import com.acorp.jvminsight.memory.GcSnapshot;
+import com.acorp.jvminsight.runtime.jvm.JvmProcessHistoryAdapter;
 import com.acorp.jvminsight.memory.MemoryPoolSnapshot;
 import java.time.Instant;
 import java.util.HashMap;
@@ -49,7 +50,7 @@ public record JvmHistorySample(
       }
     }
 
-    ProcessHistorySample process = ProcessHistorySample.from(snapshot);
+    ProcessHistorySample process = JvmProcessHistoryAdapter.from(snapshot);
     double confidence = snapshot.getDelta() == null ? 0.0 : snapshot.getDelta().getLeakScore();
 
     return new JvmHistorySample(
