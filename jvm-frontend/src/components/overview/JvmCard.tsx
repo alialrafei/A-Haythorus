@@ -8,6 +8,7 @@ import { StatusBadge } from '../common/StatusBadge';
 import { Sparkline } from '../common/Sparkline';
 import {
   formatBytes,
+  formatScore,
   percentage,
 } from '../../utils/format';
 import { getJvmHealth } from '../../utils/health';
@@ -75,7 +76,7 @@ export function JvmCard({
         </div>
         <div>
           <span>Leak score</span>
-          <strong>{snapshot.delta?.leakScore ?? 0}</strong>
+          <strong>{formatScore(snapshot.delta?.leakScore ?? 0)}</strong>
         </div>
       </div>
 
