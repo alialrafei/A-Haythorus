@@ -19,6 +19,7 @@ import { MetricCard } from '../components/common/MetricCard';
 import {
   formatBytes,
   formatPercent,
+  formatScore,
   toEpochMillis,
 } from '../utils/format';
 
@@ -113,7 +114,7 @@ function PodHistorySection({
       <section className="metric-grid">
         <MetricCard
           label="Historical leak confidence"
-          value={summary.latestConfidence}
+          value={formatScore(summary.latestConfidence)}
           detail={`${samples.length} backend samples`}
           icon="timeline-line-chart"
           accent={summary.latestConfidence >= 60 ? 'warning' : 'good'}
@@ -180,7 +181,7 @@ function PodHistorySection({
               </div>
               <div>
                 <span>Instant evidence</span>
-                <strong>{latestJvm.delta.instantaneousLeakScore}</strong>
+                <strong>{formatScore(latestJvm.delta.instantaneousLeakScore)}</strong>
                 <small>before historical smoothing</small>
               </div>
             </div>
