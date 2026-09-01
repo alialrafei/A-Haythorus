@@ -6,7 +6,4 @@ import java.util.List;
 
 /** Pod-aware history payload used by local and cluster history endpoints. */
 public record JvmHistoryResponse(
-    PodInfo pod,
-    long pid,
-    Instant timestamp,
-    List<JvmHistorySample> history) {}
+    PodInfo pod, long pid, Instant timestamp, List<JvmHistorySample> history) {}

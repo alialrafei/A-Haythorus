@@ -41,10 +41,10 @@ public class JvmDeltaSnapshot {
   private IoDeltaSnapshot ioDelta;
 
   /** Evidence score calculated from the current historical analysis window before smoothing. */
-  private int instantaneousLeakScore;
+  private double instantaneousLeakScore;
 
   /** EWMA-smoothed leak confidence. This is the value exposed as the primary leak score. */
-  private int leakScore;
+  private double leakScore;
 
   /** Fraction [0,1] of positive heap movements in the retained analysis window. */
   private double heapGrowthPersistence;

@@ -124,12 +124,14 @@ public final class SnapshotHandler implements HttpHandler {
       case RouteConstants.THREADS -> JsonResponse.ok(exchange, snapshot.getDumpSnapshot());
       case RouteConstants.THREAD_INFO -> JsonResponse.ok(exchange, snapshot.getThreadsInfos());
       case RouteConstants.THREAD_COUNT -> handleThreadCount(exchange, snapshot);
-      case RouteConstants.THREAD_CPU_TIMES -> JsonResponse.ok(exchange, snapshot.getThreadCpuTimes());
+      case RouteConstants.THREAD_CPU_TIMES ->
+          JsonResponse.ok(exchange, snapshot.getThreadCpuTimes());
       case RouteConstants.ANALYSIS -> JsonResponse.ok(exchange, snapshot.getDelta());
       case RouteConstants.DEADLOCKS -> handleDeadlocks(exchange, snapshot);
       case RouteConstants.TIMESTAMP -> handleTimestamp(exchange, snapshot);
       case RouteConstants.JVM_HISTORY ->
-          handleHistory(exchange, SnapshotService.getJvmHistory(snapshot.getPid()), snapshot.getPid());
+          handleHistory(
+              exchange, SnapshotService.getJvmHistory(snapshot.getPid()), snapshot.getPid());
       default -> JsonResponse.notFound(exchange, "Unknown JVM resource: " + resource);
     }
   }

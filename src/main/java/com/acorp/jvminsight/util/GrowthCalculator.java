@@ -73,4 +73,51 @@ public final class GrowthCalculator {
 
     return current - previous;
   }
+   /*
+   * =========================================================
+   * NUMERIC HELPERS
+   * =========================================================
+   */
+
+  public static double clamp01(
+      double value) {
+
+    return Math.max(
+        0.0,
+        Math.min(
+            1.0,
+            value));
+  }
+
+  public static double clamp100(
+      double value) {
+
+    return Math.max(
+        0.0,
+        Math.min(
+            100.0,
+            value));
+  }
+
+  public static double bytesToMb(
+      long bytes) {
+
+    return bytes
+        / 1024.0
+        / 1024.0;
+  }
+
+  public static double validatedAlpha(
+      double alpha) {
+
+    if (alpha <= 0.0
+        || alpha > 1.0) {
+
+      throw new IllegalStateException(
+          "Configuration 'leak.ewma.alpha' must be in the range (0, 1].");
+    }
+
+    return alpha;
+  }
+
 }

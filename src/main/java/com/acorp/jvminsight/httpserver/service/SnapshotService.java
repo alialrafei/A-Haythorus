@@ -54,10 +54,7 @@ public final class SnapshotService {
         .map(
             jvm ->
                 new JvmHistoryResponse(
-                    POD_INFO,
-                    jvm.getPid(),
-                    Instant.now(),
-                    JvmDataStore.getHistory(jvm.getPid())))
+                    POD_INFO, jvm.getPid(), Instant.now(), JvmDataStore.getHistory(jvm.getPid())))
         .toList();
   }
 

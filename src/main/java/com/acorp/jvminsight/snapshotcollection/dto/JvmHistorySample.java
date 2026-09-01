@@ -20,7 +20,7 @@ public record JvmHistorySample(
     long processCpuTimeNanos,
     long processReadBytes,
     long processWriteBytes,
-    int leakConfidence) {
+    double leakConfidence) {
 
   public static JvmHistorySample from(JvmSnapshot snapshot) {
     long heap = snapshot.getMemory() == null ? 0 : snapshot.getMemory().heapUsed;
@@ -50,7 +50,7 @@ public record JvmHistorySample(
         snapshot.getProcessCpu() == null ? 0 : snapshot.getProcessCpu().processCpuTimeNanos();
     long readBytes = snapshot.getProcessIo() == null ? 0 : snapshot.getProcessIo().readBytes();
     long writeBytes = snapshot.getProcessIo() == null ? 0 : snapshot.getProcessIo().writeBytes();
-    int confidence = snapshot.getDelta() == null ? 0 : snapshot.getDelta().getLeakScore();
+    double confidence = snapshot.getDelta() == null ? 0 : snapshot.getDelta().getLeakScore();
 
     return new JvmHistorySample(
         snapshot.getTimestamp(),

@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.snapshotcollection.service.delta.strategy;
 
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.CpuDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
@@ -16,7 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class CpuDeltaStrategy implements DeltaComputationStrategy {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(CpuDeltaStrategy.class);
-  private static final int TOP_THREADS = 10;
+  private static final int TOP_THREADS = ConfigLoader.getInt("analysis.cpu.top-threads", 10);
 
   @Override
   public void compute(JvmSnapshot previous, JvmSnapshot current, JvmDeltaSnapshot delta) {

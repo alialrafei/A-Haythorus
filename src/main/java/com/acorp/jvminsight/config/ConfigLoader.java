@@ -30,7 +30,15 @@ public final class ConfigLoader {
           Map.entry("pod.namespace", "POD_NAMESPACE"),
           Map.entry("pod.node", "NODE_NAME"),
           Map.entry("pod.ip", "POD_IP"),
-          Map.entry("pod.app", "APP_NAME"));
+          Map.entry("pod.app", "APP_NAME"),
+          Map.entry( "analysis.memory.heap-persistence.max-points", "AH_ANALYSIS_MEMORY_HEAP_PERSISTENCE_MAX_POINTS" ), 
+          Map.entry( "analysis.memory.heap-growth.max-points", "AH_ANALYSIS_MEMORY_HEAP_GROWTH_MAX_POINTS" ), 
+          Map.entry( "analysis.memory.old-gen-persistence.max-points", "AH_ANALYSIS_MEMORY_OLD_GEN_PERSISTENCE_MAX_POINTS" ),
+          Map.entry( "analysis.memory.old-gen-growth.max-points", "AH_ANALYSIS_MEMORY_OLD_GEN_GROWTH_MAX_POINTS" ), 
+          Map.entry( "analysis.memory.gc-retention.max-points", "AH_ANALYSIS_MEMORY_GC_RETENTION_MAX_POINTS" ), 
+          Map.entry( "analysis.memory.histogram-growth.max-points", "AH_ANALYSIS_MEMORY_HISTOGRAM_GROWTH_MAX_POINTS" ),
+          Map.entry( "analysis.cpu.top-threads", "AH_ANALYSIS_CPU_TOP_THREADS" )
+        );
 
   private ConfigLoader() {}
 
