@@ -380,8 +380,7 @@ This replaces sample-count-based maturity assumptions.
 
 ---
 
-## 13. Historical smoothing
-
+## 13. Historical smoothing: Exponentially Weighted Moving Average.
 The primary leak confidence is smoothed over time:
 
 ```text
