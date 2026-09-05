@@ -42,7 +42,10 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
 
   public KubernetesSidecarDiscovery() {
     this.shardConfiguration = ShardConfiguration.load();
-    this.shardResolver = ShardResolverFactory.create(shardConfiguration);
+    this.shardResolver =
+        shardConfiguration.enabled() && shardConfiguration.shardCount() > 1
+            ? ShardResolverFactory.create(shardConfiguration)
+            : null;
 
     this.httpClient =
         HttpClient.newBuilder()
@@ -123,7 +126,7 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
             .distinct()
             .toList();
 
-    if (shardConfiguration.enabled()) {
+    if (localShard != null) {
       LOGGER.debug(
           "Kubernetes discovery selected {} peer(s) for shard {}/{}",
           peers.size(),
@@ -135,7 +138,7 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
   }
 
   private Integer resolveLocalShard(KubernetesPodList podList, String selfIp, String selfName) {
-    if (!shardConfiguration.enabled() || shardConfiguration.shardCount() == 1) {
+    if (shardResolver == null) {
       return null;
     }
 
@@ -158,11 +161,7 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
   }
 
   private boolean belongsToLocalShard(KubernetesPod pod, Integer localShard) {
-    if (localShard == null) {
-      return true;
-    }
-
-    return shardResolver.resolve(pod) == localShard;
+    return localShard == null || shardResolver.resolve(pod) == localShard;
   }
 
   private boolean isRunning(KubernetesPod pod) {
