@@ -40,7 +40,7 @@ ENV AH_RUNTIME_MODE=local
 ENV AH_SERVER_HOST=0.0.0.0
 ENV AH_SERVER_PORT=8899
 ENV AH_UI_DIR=/app/ui
-
+LABEL version="v2.0.0"
 EXPOSE 8899
 
 ENTRYPOINT ["java", "-jar", "/app/a-haythorus.jar"]
