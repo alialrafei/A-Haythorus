@@ -3,6 +3,8 @@ package com.acorp.jvminsight.cluster.shard;
 import com.acorp.jvminsight.config.ConfigLoader;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Immutable sharding configuration loaded from application properties / environment variables.
@@ -14,7 +16,10 @@ public record ShardConfiguration(
     int shardCount,
     String algorithm,
     List<String> keyFields,
-    String overrideLabel) {
+    String overrideLabel,
+    String missingKeyPolicy) {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(ShardConfiguration.class);
 
   public static ShardConfiguration load() {
     boolean enabled =
@@ -42,6 +47,21 @@ public record ShardConfiguration(
     String overrideLabel =
         ConfigLoader.get("cluster.shard.override-label", "a-haythorus.io/shard").trim();
 
-    return new ShardConfiguration(enabled, shardCount, algorithm, keyFields, overrideLabel);
+    String missingKeyPolicy =
+        ConfigLoader.get("cluster.shard.missing-key-policy", "fallback").trim().toLowerCase();
+
+    if (!List.of("fallback", "reject").contains(missingKeyPolicy)) {
+      throw new IllegalStateException(
+          "Configuration 'cluster.shard.missing-key-policy' must be 'fallback' or 'reject'.");
+    }
+
+    if (enabled && shardCount > 1 && keyFields.stream().noneMatch("pod"::equals)) {
+      LOGGER.warn(
+          "Shard key fields {} do not include per-pod identity; large replica groups may concentrate in one shard.",
+          keyFields);
+    }
+
+    return new ShardConfiguration(
+        enabled, shardCount, algorithm, keyFields, overrideLabel, missingKeyPolicy);
   }
 }
