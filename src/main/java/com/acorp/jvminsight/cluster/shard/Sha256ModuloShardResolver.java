@@ -1,10 +1,11 @@
 package com.acorp.jvminsight.cluster.shard;
 
 import com.acorp.jvminsight.cluster.kubernetes.dto.KubernetesPod;
-import java.nio.ByteBuffer;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -18,12 +19,13 @@ import org.slf4j.LoggerFactory;
  * <ol>
  *   <li>If the configured override label exists, use its explicit shard id.
  *   <li>Otherwise build the configured shard key.
- *   <li>Hash the key using SHA-256.
- *   <li>Interpret the first 8 digest bytes as a signed long and use floorMod by shard count.
+ *   <li>Hash the UTF-8 key using SHA-256.
+ *   <li>Interpret the first 8 digest bytes as an unsigned big-endian integer.
+ *   <li>Take modulo {@code shardCount}.
  * </ol>
  *
- * <p>Using SHA-256 instead of Java {@link String#hashCode()} keeps shard assignment reproducible
- * from future agents written in other languages.
+ * <p>This definition is intentionally language-neutral so Java, Python, Node, Rust, or native
+ * agents can reproduce exactly the same shard assignment.
  */
 public final class Sha256ModuloShardResolver implements ShardResolver {
 
@@ -60,8 +62,10 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
     }
 
     byte[] digest = sha256(key);
-    long hash64 = ByteBuffer.wrap(digest, 0, Long.BYTES).getLong();
-    return Math.floorMod(hash64, config.shardCount());
+    byte[] firstEightBytes = Arrays.copyOf(digest, Long.BYTES);
+    BigInteger hash64 = new BigInteger(1, firstEightBytes);
+
+    return hash64.mod(BigInteger.valueOf(config.shardCount())).intValue();
   }
 
   @Override
