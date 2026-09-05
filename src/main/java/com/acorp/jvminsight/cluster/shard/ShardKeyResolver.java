@@ -14,7 +14,7 @@ import java.util.StringJoiner;
  *   <li>{@code namespace}
  *   <li>{@code pod}
  *   <li>{@code app} (label {@code app.kubernetes.io/name}, then {@code app})
- *   <li>{@code node} (currently unavailable from discovery DTO and therefore empty)
+ *   <li>{@code node}
  *   <li>{@code label:<name>}
  * </ul>
  */
@@ -56,13 +56,12 @@ public final class ShardKeyResolver {
       return value != null ? value : labels.get("app");
     }
 
-    if (normalized.startsWith("label:")) {
-      return labels.get(normalized.substring("label:".length()));
+    if ("node".equals(normalized)) {
+      return pod.getSpec() == null ? null : pod.getSpec().getNodeName();
     }
 
-    if ("node".equals(normalized)) {
-      throw new IllegalStateException(
-          "Shard key field 'node' is not available from the current Kubernetes pod DTO yet.");
+    if (normalized.startsWith("label:")) {
+      return labels.get(normalized.substring("label:".length()));
     }
 
     throw new IllegalStateException("Unsupported shard key field: " + field);
