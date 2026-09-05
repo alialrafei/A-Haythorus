@@ -109,6 +109,30 @@ spec:
             - name: AH_LEAK_EWMA_ALPHA
               value: "0.35"
 
+            # Bound peer fan-out even inside one shard.
+            - name: AH_CLUSTER_MAX_CONCURRENT_REQUESTS
+              value: "8"
+
+            # Sharding remains disabled in the two-replica smoke test by default.
+            # Enable this for larger namespace-scale tests.
+            - name: AH_CLUSTER_SHARDING_ENABLED
+              value: "false"
+
+            - name: AH_CLUSTER_SHARD_COUNT
+              value: "1"
+
+            - name: AH_CLUSTER_SHARD_ALGORITHM
+              value: sha256-modulo
+
+            - name: AH_CLUSTER_SHARD_KEY_FIELDS
+              value: namespace,pod
+
+            - name: AH_CLUSTER_SHARD_OVERRIDE_LABEL
+              value: a-haythorus.io/shard
+
+            - name: AH_CLUSTER_SHARD_MISSING_KEY_POLICY
+              value: fallback
+
             - name: POD_NAME
               valueFrom:
                 fieldRef:

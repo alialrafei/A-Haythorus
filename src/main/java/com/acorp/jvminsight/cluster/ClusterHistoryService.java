@@ -6,8 +6,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +13,6 @@ import org.slf4j.LoggerFactory;
 public final class ClusterHistoryService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ClusterHistoryService.class);
-  private static final ExecutorService PEER_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
   private final SidecarDiscovery discovery;
   private final SidecarClient client;
@@ -42,7 +39,7 @@ public final class ClusterHistoryService {
 
     List<CompletableFuture<List<JvmHistoryResponse>>> requests =
         peers.stream()
-            .map(peer -> CompletableFuture.supplyAsync(() -> fetchPeer(peer), PEER_EXECUTOR))
+            .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
             .toList();
 
     for (CompletableFuture<List<JvmHistoryResponse>> request : requests) {
