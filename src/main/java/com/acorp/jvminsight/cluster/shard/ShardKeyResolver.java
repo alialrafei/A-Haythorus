@@ -5,19 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
-/**
- * Builds a deterministic sharding key from configured Kubernetes pod metadata.
- *
- * <p>Supported fields:
- *
- * <ul>
- *   <li>{@code namespace}
- *   <li>{@code pod}
- *   <li>{@code app} (label {@code app.kubernetes.io/name}, then {@code app})
- *   <li>{@code node}
- *   <li>{@code label:<name>}
- * </ul>
- */
+/** Builds a deterministic sharding key from configured Kubernetes pod metadata. */
 public final class ShardKeyResolver {
 
   public String resolve(KubernetesPod pod, List<String> fields) {
@@ -29,7 +17,7 @@ public final class ShardKeyResolver {
     for (String field : fields) {
       String value = resolveField(pod, field);
       if (value == null || value.isBlank()) {
-        throw new IllegalStateException(
+        throw new MissingShardKeyFieldException(
             "Shard key field '" + field + "' is missing for pod " + pod.getMetadata().getName());
       }
       joiner.add(value);
@@ -43,27 +31,20 @@ public final class ShardKeyResolver {
     Map<String, String> labels =
         pod.getMetadata().getLabels() == null ? Map.of() : pod.getMetadata().getLabels();
 
-    if ("namespace".equals(normalized)) {
-      return pod.getMetadata().getNamespace();
-    }
-
-    if ("pod".equals(normalized)) {
-      return pod.getMetadata().getName();
-    }
-
-    if ("app".equals(normalized)) {
-      String value = labels.get("app.kubernetes.io/name");
-      return value != null ? value : labels.get("app");
-    }
-
-    if ("node".equals(normalized)) {
-      return pod.getSpec() == null ? null : pod.getSpec().getNodeName();
-    }
-
-    if (normalized.startsWith("label:")) {
-      return labels.get(normalized.substring("label:".length()));
-    }
-
-    throw new IllegalStateException("Unsupported shard key field: " + field);
+    return switch (normalized) {
+      case "namespace" -> pod.getMetadata().getNamespace();
+      case "pod" -> pod.getMetadata().getName();
+      case "app" -> {
+        String value = labels.get("app.kubernetes.io/name");
+        yield value != null ? value : labels.get("app");
+      }
+      case "node" -> pod.getSpec() == null ? null : pod.getSpec().getNodeName();
+      default -> {
+        if (normalized.startsWith("label:")) {
+          yield labels.get(normalized.substring("label:".length()));
+        }
+        throw new IllegalStateException("Unsupported shard key field: " + field);
+      }
+    };
   }
 }
