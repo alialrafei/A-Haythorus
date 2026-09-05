@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,12 +47,16 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
     String key;
     try {
       key = keyResolver.resolve(pod, config.keyFields());
-    } catch (IllegalStateException ex) {
+    } catch (MissingShardKeyFieldException ex) {
+      if ("reject".equals(config.missingKeyPolicy())) {
+        throw ex;
+      }
+
       LOGGER.warn(
           "Unable to build configured shard key for pod {}; falling back to namespace,pod. reason={}",
           podName(pod),
           ex.getMessage());
-      key = keyResolver.resolve(pod, java.util.List.of("namespace", "pod"));
+      key = keyResolver.resolve(pod, List.of("namespace", "pod"));
     }
 
     byte[] digest = sha256(key);
