@@ -7,5 +7,7 @@ public class KubernetesPod {
 
   private KubernetesMetadata metadata;
 
+  private KubernetesPodSpec spec;
+
   private KubernetesPodStatus status;
 }
