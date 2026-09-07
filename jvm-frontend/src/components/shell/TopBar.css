@@ -1,0 +1,65 @@
+.sharding-control {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  gap: 10px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sharding-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.sharding-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.sharding-dot-enabled {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.08);
+}
+
+.sharding-dot-disabled {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 83, 80, 0.08);
+}
+
+.sharding-disabled {
+  padding-right: 10px;
+}
+
+.shard-select {
+  height: 24px;
+  min-width: 42px;
+  padding: 0 21px 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  outline: none;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shard-select:hover,
+.shard-select:focus {
+  border-color: rgba(124, 108, 255, 0.4);
+}
+
+.shard-select option {
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
