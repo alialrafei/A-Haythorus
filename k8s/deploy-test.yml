@@ -94,9 +94,9 @@ spec:
             - name: AH_CLUSTER_MAX_CONCURRENT_REQUESTS
               value: "8"
             - name: AH_CLUSTER_SHARDING_ENABLED
-              value: "false"
+              value: "true"
             - name: AH_CLUSTER_SHARD_COUNT
-              value: "1"
+              value: "2"
             - name: AH_CLUSTER_SHARD_ALGORITHM
               value: sha256-modulo
             - name: AH_CLUSTER_SHARD_KEY_FIELDS
