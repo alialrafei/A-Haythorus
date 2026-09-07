@@ -13,6 +13,12 @@ export interface RootMetadata {
   timestamp: TimestampValue;
   pod: PodInfo;
   monitoredJvmCount: number;
+  sharding: ShardingCapabilities;
+}
+
+export interface ShardingCapabilities {
+  enabled: boolean;
+  shardCount: number;
 }
 
 export interface AggregatorSnapshot {
@@ -161,6 +167,7 @@ export interface HistogramDelta {
   bytesDelta?: number;
   previousInstances?: number;
   currentInstances?: number;
+  bytesDelta?: number;
   instancesDelta?: number;
 }
 
