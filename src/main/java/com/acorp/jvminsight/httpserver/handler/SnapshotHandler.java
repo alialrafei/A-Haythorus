@@ -50,7 +50,7 @@ public final class SnapshotHandler implements HttpHandler {
         if (isLocalOnlyRequest(exchange)) {
           JsonResponse.ok(exchange, SnapshotService.getLocalJvmHistories());
         } else {
-          JsonResponse.ok(exchange, CLUSTER_HISTORY_SERVICE.getHistories());
+          JsonResponse.ok(exchange, CLUSTER_HISTORY_SERVICE.getHistories(parseRequestedShard(exchange)));
         }
         return;
       }
@@ -61,12 +61,10 @@ public final class SnapshotHandler implements HttpHandler {
         JsonResponse.ok(exchange, jvms == null ? List.of() : jvms);
         return;
       }
-
       if (path.startsWith(RouteConstants.JVMS + "/")) {
         handleJvmRoute(exchange, snapshot, path);
         return;
       }
-
       JsonResponse.notFound(exchange);
     } catch (IllegalArgumentException ex) {
       JsonResponse.badRequest(exchange, ex.getMessage());
@@ -79,7 +77,6 @@ public final class SnapshotHandler implements HttpHandler {
   private Integer parseRequestedShard(HttpExchange exchange) {
     String query = exchange.getRequestURI().getRawQuery();
     if (query == null || query.isBlank()) return null;
-
     for (String parameter : query.split("&")) {
       String[] pair = parameter.split("=", 2);
       if (pair.length == 2 && "shard".equals(pair[0])) {
@@ -105,7 +102,6 @@ public final class SnapshotHandler implements HttpHandler {
       JsonResponse.notFound(exchange);
       return;
     }
-
     long pid;
     try {
       pid = Long.parseLong(segments[0]);
@@ -113,13 +109,11 @@ public final class SnapshotHandler implements HttpHandler {
       JsonResponse.badRequest(exchange, "Invalid JVM PID: " + segments[0]);
       return;
     }
-
     Optional<JvmSnapshot> result = findJvm(aggregatorSnapshot, pid);
     if (result.isEmpty()) {
       JsonResponse.notFound(exchange, "No JVM snapshot found for PID " + pid);
       return;
     }
-
     JvmSnapshot jvm = result.get();
     if (segments.length == 1) {
       JsonResponse.ok(exchange, jvm);
