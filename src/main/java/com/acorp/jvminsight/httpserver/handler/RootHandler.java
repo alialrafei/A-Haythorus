@@ -1,5 +1,6 @@
 package com.acorp.jvminsight.httpserver.handler;
 
+import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.container.PodInfoProvider;
 import com.acorp.jvminsight.container.dto.PodInfo;
 import com.acorp.jvminsight.httpserver.util.JsonResponse;
@@ -15,10 +16,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Root API endpoint.
  *
- * <p>Returns metadata describing the running JVM Night Watch sidecar.
- *
- * <p>This endpoint intentionally does not expose JVM metrics. It is intended for API discovery and
- * identification of the current sidecar instance.
+ * <p>Returns metadata describing the running A-Haythorus sidecar and the UI capabilities exposed by
+ * this instance.
  */
 public final class RootHandler implements HttpHandler {
 
@@ -47,6 +46,15 @@ public final class RootHandler implements HttpHandler {
     response.put("timestamp", System.currentTimeMillis());
     response.put("pod", podInfo);
     response.put("monitoredJvmCount", JvmDataStore.getDateStored().size());
+
+    Map<String, Object> sharding = new LinkedHashMap<>();
+    int shardCount = ConfigLoader.getInt("cluster.shard.count", 1);
+    boolean shardingEnabled =
+        Boolean.parseBoolean(ConfigLoader.get("cluster.sharding.enabled", "false"))
+            && shardCount > 1;
+    sharding.put("enabled", shardingEnabled);
+    sharding.put("shardCount", shardingEnabled ? shardCount : 1);
+    response.put("sharding", sharding);
 
     JsonResponse.ok(exchange, response);
 
