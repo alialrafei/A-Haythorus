@@ -1,6 +1,9 @@
 package com.acorp.jvminsight;
 
+import com.acorp.jvminsight.cluster.kubernetes.KubernetesShardLabelController;
+import com.acorp.jvminsight.cluster.shard.ShardConfiguration;
 import com.acorp.jvminsight.config.ConfigLoader;
+import com.acorp.jvminsight.config.RuntimeMode;
 import com.acorp.jvminsight.discovery.JvmProcessLocator;
 import com.acorp.jvminsight.httpserver.HttpServerUtil;
 import com.acorp.jvminsight.snapshotcollection.service.JvmCollector;
@@ -17,35 +20,43 @@ import org.slf4j.LoggerFactory;
 
 public class Main {
   private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
-
   private static final long DISCOVERY_INTERVAL_MS = 3000;
 
   public static void main(String[] args) throws Exception {
     redirctStdOut();
-
-    // start http server
     HttpServerUtil.startHttpServer();
+    startShardLabelControllerIfEnabled();
     superviseJvmCollectors();
+  }
+
+  private static void startShardLabelControllerIfEnabled() {
+    if (RuntimeMode.from(ConfigLoader.get("runtime.mode", "local")) != RuntimeMode.KUBERNETES) {
+      return;
+    }
+
+    ShardConfiguration configuration = ShardConfiguration.load();
+    if (!configuration.enabled() || configuration.shardCount() <= 1) {
+      return;
+    }
+
+    Thread controller = new Thread(new KubernetesShardLabelController(), "kubernetes-shard-label-controller");
+    controller.setDaemon(true);
+    controller.start();
+    LOGGER.info("Started Kubernetes shard label controller for {} shard(s).", configuration.shardCount());
   }
 
   private static void superviseJvmCollectors() throws InterruptedException {
     Map<Long, Thread> collectors = new HashMap<>();
     while (!Thread.currentThread().isInterrupted()) {
-      /*
-       * Remove collector threads which have terminated.
-       */
-      collectors
-          .entrySet()
-          .removeIf(
-              entry -> {
-                Thread thread = entry.getValue();
-                if (!thread.isAlive()) {
-                  LOGGER.info("Removing terminated collector for pid={}", entry.getKey());
-                  return true;
-                }
+      collectors.entrySet().removeIf(entry -> {
+        Thread thread = entry.getValue();
+        if (!thread.isAlive()) {
+          LOGGER.info("Removing terminated collector for pid={}", entry.getKey());
+          return true;
+        }
+        return false;
+      });
 
-                return false;
-              });
       List<Long> discoveredPids;
       try {
         discoveredPids = JvmProcessLocator.autoDetectTargetJvmPid();
@@ -54,6 +65,7 @@ public class Main {
         Thread.sleep(DISCOVERY_INTERVAL_MS);
         continue;
       }
+
       LOGGER.debug("Discovered JVM PIDs: {}", discoveredPids);
       for (long pid : discoveredPids) {
         if (collectors.containsKey(pid)) {
@@ -62,23 +74,11 @@ public class Main {
         try {
           LOGGER.info("Starting collector for newly discovered JVM pid={}", pid);
           Thread collector = new Thread(new JvmCollector(pid), "collector-" + pid);
-          /*
-           * Fine to keep daemon=true because the supervisor
-           * main thread stays alive.
-           */
           collector.setDaemon(true);
           collector.start();
           collectors.put(pid, collector);
-
         } catch (Exception ex) {
-          /*
-           * Attach can race against JVM shutdown/startup.
-           * Don't crash A-Haythorus; retry on next scan.
-           */
-          LOGGER.warn(
-              "Failed starting collector for pid={}. " + "Will retry during next JVM scan.",
-              pid,
-              ex);
+          LOGGER.warn("Failed starting collector for pid={}. Will retry during next JVM scan.", pid, ex);
         }
       }
       Thread.sleep(DISCOVERY_INTERVAL_MS);
@@ -94,7 +94,6 @@ public class Main {
       FileOutputStream fos = new FileOutputStream(logdir.resolve("app.log").toFile(), true);
       PrintStream ps = new PrintStream(fos, true);
       System.setOut(ps);
-
     } catch (Exception e) {
       e.printStackTrace();
     }
