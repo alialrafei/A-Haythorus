@@ -22,7 +22,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Materializes the configured shard assignment as a Kubernetes pod label. */
+/** Materializes the computed shard assignment on the local Kubernetes pod. */
 public final class KubernetesShardLabelController implements Runnable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesShardLabelController.class);
@@ -42,11 +42,10 @@ public final class KubernetesShardLabelController implements Runnable {
   public KubernetesShardLabelController() {
     this.configuration = ShardConfiguration.load();
     this.resolver = ShardResolverFactory.create(configuration);
-    this.httpClient =
-        HttpClient.newBuilder()
-            .sslContext(KubernetesSslContextFactory.create(CA_PATH))
-            .connectTimeout(Duration.ofMillis(ConfigLoader.getLong("cluster.connect.timeout.ms", 1000)))
-            .build();
+    this.httpClient = HttpClient.newBuilder()
+        .sslContext(KubernetesSslContextFactory.create(CA_PATH))
+        .connectTimeout(Duration.ofMillis(ConfigLoader.getLong("cluster.connect.timeout.ms", 1000)))
+        .build();
   }
 
   @Override
@@ -55,7 +54,7 @@ public final class KubernetesShardLabelController implements Runnable {
       try {
         reconcile();
       } catch (Exception ex) {
-        LOGGER.warn("Failed reconciling Kubernetes shard labels.", ex);
+        LOGGER.warn("Failed reconciling Kubernetes shard label.", ex);
       }
 
       try {
@@ -68,14 +67,31 @@ public final class KubernetesShardLabelController implements Runnable {
 
   private void reconcile() throws Exception {
     String namespace = readRequiredFile(NAMESPACE_PATH);
+    String podName = requiredEnvironment("POD_NAME");
     String token = readRequiredFile(TOKEN_PATH);
     String apiHost = requiredEnvironment("KUBERNETES_SERVICE_HOST");
     String apiPort = System.getenv().getOrDefault("KUBERNETES_SERVICE_PORT_HTTPS", "443");
     String discoveryLabel = ConfigLoader.get("sidecar.discovery.label", "a-haythorus.io/enabled=true");
 
-    URI uri = URI.create(
-        "https://" + apiHost + ":" + apiPort + "/api/v1/namespaces/" + namespace
-            + "/pods?labelSelector=" + URLEncoder.encode(discoveryLabel, StandardCharsets.UTF_8));
+    KubernetesPod pod = findPod(apiHost, apiPort, namespace, podName, token, discoveryLabel);
+    if (pod == null || !isRunning(pod)) {
+      return;
+    }
+
+    int shard = resolver.resolveComputed(pod);
+    String current = pod.getMetadata().getLabels() == null
+        ? null
+        : pod.getMetadata().getLabels().get(configuration.overrideLabel());
+
+    if (!Integer.toString(shard).equals(current)) {
+      patchShardLabel(apiHost, apiPort, namespace, podName, token, shard);
+    }
+  }
+
+  private KubernetesPod findPod(String apiHost, String apiPort, String namespace, String podName,
+      String token, String discoveryLabel) throws Exception {
+    URI uri = URI.create("https://" + apiHost + ":" + apiPort + "/api/v1/namespaces/"
+        + namespace + "/pods?labelSelector=" + URLEncoder.encode(discoveryLabel, StandardCharsets.UTF_8));
 
     HttpRequest request = HttpRequest.newBuilder(uri)
         .timeout(Duration.ofMillis(ConfigLoader.getLong("cluster.request.timeout.ms", 2000)))
@@ -91,23 +107,14 @@ public final class KubernetesShardLabelController implements Runnable {
 
     KubernetesPodList podList = MAPPER.readValue(response.body(), KubernetesPodList.class);
     if (podList == null || podList.getItems() == null) {
-      return;
+      return null;
     }
 
-    for (KubernetesPod pod : podList.getItems()) {
-      if (!isRunning(pod) || pod.getMetadata() == null || pod.getMetadata().getName() == null) {
-        continue;
-      }
-
-      int shard = resolver.resolveComputed(pod);
-      String current = pod.getMetadata().getLabels() == null
-          ? null
-          : pod.getMetadata().getLabels().get(configuration.overrideLabel());
-
-      if (!Integer.toString(shard).equals(current)) {
-        patchShardLabel(apiHost, apiPort, namespace, pod.getMetadata().getName(), token, shard);
-      }
-    }
+    return podList.getItems().stream()
+        .filter(pod -> pod != null && pod.getMetadata() != null)
+        .filter(pod -> podName.equals(pod.getMetadata().getName()))
+        .findFirst()
+        .orElse(null);
   }
 
   private void patchShardLabel(String apiHost, String apiPort, String namespace, String podName,
@@ -115,10 +122,9 @@ public final class KubernetesShardLabelController implements Runnable {
     URI uri = URI.create("https://" + apiHost + ":" + apiPort + "/api/v1/namespaces/"
         + namespace + "/pods/" + URLEncoder.encode(podName, StandardCharsets.UTF_8));
 
-    Map<String, Object> labels = new HashMap<>();
+    Map<String, String> labels = new HashMap<>();
     labels.put(configuration.overrideLabel(), Integer.toString(shard));
-    Map<String, Object> metadata = Map.of("labels", labels);
-    String body = MAPPER.writeValueAsString(Map.of("metadata", metadata));
+    String body = MAPPER.writeValueAsString(Map.of("metadata", Map.of("labels", labels)));
 
     HttpRequest request = HttpRequest.newBuilder(uri)
         .timeout(Duration.ofMillis(ConfigLoader.getLong("cluster.request.timeout.ms", 2000)))
