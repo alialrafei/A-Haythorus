@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 public final class ClusterHistoryService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ClusterHistoryService.class);
-
   private final SidecarDiscovery discovery;
   private final SidecarClient client;
 
@@ -27,26 +26,28 @@ public final class ClusterHistoryService {
   }
 
   public List<JvmHistoryResponse> getHistories() {
-    List<JvmHistoryResponse> histories = new ArrayList<>(SnapshotService.getLocalJvmHistories());
+    return getHistories(null);
+  }
+
+  public List<JvmHistoryResponse> getHistories(Integer requestedShard) {
+    List<JvmHistoryResponse> histories =
+        requestedShard == null ? new ArrayList<>(SnapshotService.getLocalJvmHistories()) : new ArrayList<>();
 
     List<URI> peers;
     try {
-      peers = discovery.discover();
+      peers = discovery.discover(requestedShard);
     } catch (Exception ex) {
       LOGGER.warn("Peer discovery failed. Returning local JVM history only.", ex);
       return List.copyOf(histories);
     }
 
-    List<CompletableFuture<List<JvmHistoryResponse>>> requests =
-        peers.stream()
-            .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
-            .toList();
+    List<CompletableFuture<List<JvmHistoryResponse>>> requests = peers.stream()
+        .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
+        .toList();
 
     for (CompletableFuture<List<JvmHistoryResponse>> request : requests) {
       List<JvmHistoryResponse> peerHistories = request.join();
-      if (peerHistories != null) {
-        histories.addAll(peerHistories);
-      }
+      if (peerHistories != null) histories.addAll(peerHistories);
     }
 
     return List.copyOf(histories);
