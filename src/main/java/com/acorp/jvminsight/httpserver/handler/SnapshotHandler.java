@@ -23,8 +23,7 @@ import org.slf4j.LoggerFactory;
 public final class SnapshotHandler implements HttpHandler {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnapshotHandler.class);
-  private static final ClusterSnapshotService CLUSTER_SNAPSHOT_SERVICE =
-      new ClusterSnapshotService();
+  private static final ClusterSnapshotService CLUSTER_SNAPSHOT_SERVICE = new ClusterSnapshotService();
   private static final ClusterHistoryService CLUSTER_HISTORY_SERVICE = new ClusterHistoryService();
 
   @Override
@@ -42,7 +41,7 @@ public final class SnapshotHandler implements HttpHandler {
         if (isLocalOnlyRequest(exchange)) {
           JsonResponse.ok(exchange, SnapshotService.getSnapshot());
         } else {
-          JsonResponse.ok(exchange, CLUSTER_SNAPSHOT_SERVICE.getSnapshots());
+          JsonResponse.ok(exchange, CLUSTER_SNAPSHOT_SERVICE.getSnapshots(parseRequestedShard(exchange)));
         }
         return;
       }
@@ -57,7 +56,6 @@ public final class SnapshotHandler implements HttpHandler {
       }
 
       AggregatorSnapshot snapshot = SnapshotService.getSnapshot();
-
       if (RouteConstants.JVMS.equals(path)) {
         List<JvmSnapshot> jvms = snapshot.getJvmSnapshots();
         JsonResponse.ok(exchange, jvms == null ? List.of() : jvms);
@@ -70,18 +68,35 @@ public final class SnapshotHandler implements HttpHandler {
       }
 
       JsonResponse.notFound(exchange);
+    } catch (IllegalArgumentException ex) {
+      JsonResponse.badRequest(exchange, ex.getMessage());
     } catch (Exception ex) {
       LOGGER.error("Failed to process request '{}'.", path, ex);
       JsonResponse.internalServerError(exchange, "Failed to process snapshot request.");
     }
   }
 
-  private void handleJvmRoute(
-      HttpExchange exchange, AggregatorSnapshot aggregatorSnapshot, String path)
+  private Integer parseRequestedShard(HttpExchange exchange) {
+    String query = exchange.getRequestURI().getRawQuery();
+    if (query == null || query.isBlank()) return null;
+
+    for (String parameter : query.split("&")) {
+      String[] pair = parameter.split("=", 2);
+      if (pair.length == 2 && "shard".equals(pair[0])) {
+        try {
+          return Integer.valueOf(pair[1]);
+        } catch (NumberFormatException ex) {
+          throw new IllegalArgumentException("Invalid shard: " + pair[1]);
+        }
+      }
+    }
+    return null;
+  }
+
+  private void handleJvmRoute(HttpExchange exchange, AggregatorSnapshot aggregatorSnapshot, String path)
       throws IOException {
     String remaining = path.substring((RouteConstants.JVMS + "/").length());
     String[] segments = remaining.split("/");
-
     if (segments.length == 0 || segments[0].isBlank()) {
       JsonResponse.badRequest(exchange, "Missing JVM PID");
       return;
@@ -110,7 +125,6 @@ public final class SnapshotHandler implements HttpHandler {
       JsonResponse.ok(exchange, jvm);
       return;
     }
-
     routeJvmResource(exchange, jvm, segments[1]);
   }
 
@@ -124,14 +138,12 @@ public final class SnapshotHandler implements HttpHandler {
       case RouteConstants.THREADS -> JsonResponse.ok(exchange, snapshot.getDumpSnapshot());
       case RouteConstants.THREAD_INFO -> JsonResponse.ok(exchange, snapshot.getThreadsInfos());
       case RouteConstants.THREAD_COUNT -> handleThreadCount(exchange, snapshot);
-      case RouteConstants.THREAD_CPU_TIMES ->
-          JsonResponse.ok(exchange, snapshot.getThreadCpuTimes());
+      case RouteConstants.THREAD_CPU_TIMES -> JsonResponse.ok(exchange, snapshot.getThreadCpuTimes());
       case RouteConstants.ANALYSIS -> JsonResponse.ok(exchange, snapshot.getDelta());
       case RouteConstants.DEADLOCKS -> handleDeadlocks(exchange, snapshot);
       case RouteConstants.TIMESTAMP -> handleTimestamp(exchange, snapshot);
       case RouteConstants.JVM_HISTORY ->
-          handleHistory(
-              exchange, SnapshotService.getJvmHistory(snapshot.getPid()), snapshot.getPid());
+          handleHistory(exchange, SnapshotService.getJvmHistory(snapshot.getPid()), snapshot.getPid());
       default -> JsonResponse.notFound(exchange, "Unknown JVM resource: " + resource);
     }
   }
@@ -172,19 +184,13 @@ public final class SnapshotHandler implements HttpHandler {
   }
 
   private Optional<JvmSnapshot> findJvm(AggregatorSnapshot snapshot, long pid) {
-    if (snapshot.getJvmSnapshots() == null) {
-      return Optional.empty();
-    }
+    if (snapshot.getJvmSnapshots() == null) return Optional.empty();
     return snapshot.getJvmSnapshots().stream().filter(jvm -> jvm.getPid() == pid).findFirst();
   }
 
   private String normalizePath(String path) {
-    if (path == null || path.isBlank()) {
-      return "/";
-    }
-    if (path.length() > 1 && path.endsWith("/")) {
-      return path.substring(0, path.length() - 1);
-    }
+    if (path == null || path.isBlank()) return "/";
+    if (path.length() > 1 && path.endsWith("/")) return path.substring(0, path.length() - 1);
     return path;
   }
 
