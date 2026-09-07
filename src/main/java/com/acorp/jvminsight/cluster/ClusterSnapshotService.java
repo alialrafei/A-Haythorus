@@ -40,21 +40,11 @@ public final class ClusterSnapshotService {
     List<URI> peers;
     try {
       peers = discovery.discover(requestedShard);
-      LOGGER.debug("Discovered {} peer sidecar(s) for {}.", peers.size(),
+      LOGGER.debug("Discovered {} sidecar(s) for {}.", peers.size(),
           requestedShard == null ? "local shard" : "requested shard " + requestedShard);
     } catch (Exception ex) {
-      LOGGER.warn("Peer discovery failed. Returning available local snapshot only.", ex);
-      if (requestedShard == null) {
-        return List.copyOf(snapshots.values());
-      }
-      return List.of();
-    }
-
-    if (requestedShard != null) {
-      AggregatorSnapshot local = SnapshotService.getSnapshot();
-      if (belongsToRequestedShard(local, requestedShard)) {
-        addSnapshot(snapshots, local);
-      }
+      LOGGER.warn("Peer discovery failed. Returning local snapshot only.", ex);
+      return requestedShard == null ? List.copyOf(snapshots.values()) : List.of();
     }
 
     List<CompletableFuture<AggregatorSnapshot>> requests = peers.stream()
@@ -63,19 +53,12 @@ public final class ClusterSnapshotService {
 
     for (CompletableFuture<AggregatorSnapshot> request : requests) {
       AggregatorSnapshot peerSnapshot = request.join();
-      if (peerSnapshot != null && (requestedShard == null || belongsToRequestedShard(peerSnapshot, requestedShard))) {
+      if (peerSnapshot != null) {
         addSnapshot(snapshots, peerSnapshot);
       }
     }
 
     return List.copyOf(snapshots.values());
-  }
-
-  private boolean belongsToRequestedShard(AggregatorSnapshot snapshot, int requestedShard) {
-    // Discovery is authoritative for membership. The local check is intentionally conservative:
-    // a local snapshot is included only when its materialized pod label was already selected.
-    // Peer snapshots are already constrained by Kubernetes label selection.
-    return requestedShard >= 0 && snapshot != null;
   }
 
   private AggregatorSnapshot fetchPeer(URI peer) {
@@ -88,9 +71,7 @@ public final class ClusterSnapshotService {
   }
 
   private void addSnapshot(Map<String, AggregatorSnapshot> snapshots, AggregatorSnapshot snapshot) {
-    if (snapshot == null || snapshot.getPod() == null) {
-      return;
-    }
+    if (snapshot == null || snapshot.getPod() == null) return;
     String key = snapshot.getPod().getNamespace() + "/" + snapshot.getPod().getName();
     snapshots.put(key, snapshot);
   }
