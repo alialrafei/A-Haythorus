@@ -128,6 +128,10 @@ export function AppShell() {
               current === 'dark' ? 'light' : 'dark',
             )
           }
+          shardingEnabled={monitoring.sharding.enabled}
+          shardCount={monitoring.sharding.shardCount}
+          selectedShard={monitoring.selectedShard}
+          onShardChange={monitoring.setSelectedShard}
         />
 
         <main className="page">

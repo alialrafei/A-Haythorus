@@ -12,12 +12,17 @@ import type {
   JvmHistoryPoint,
   JvmSnapshot,
   PodInfo,
+  ShardingCapabilities,
 } from '../models/snapshot';
 import { buildJvmKey } from '../utils/health';
 import { toEpochMillis } from '../utils/format';
 
 const POLL_INTERVAL_MS = 5_000;
 const MAX_HISTORY_POINTS = 72;
+const DEFAULT_SHARDING: ShardingCapabilities = {
+  enabled: false,
+  shardCount: 1,
+};
 
 export interface JvmNode {
   key: string;
@@ -30,6 +35,9 @@ interface MonitoringContextValue {
   snapshots: AggregatorSnapshot[];
   jvms: JvmNode[];
   historyByJvm: Record<string, JvmHistoryPoint[]>;
+  sharding: ShardingCapabilities;
+  selectedShard: number;
+  setSelectedShard: (shard: number) => void;
   loading: boolean;
   refreshing: boolean;
   error: string | null;
@@ -70,6 +78,10 @@ export function MonitoringProvider({
   const [snapshots, setSnapshots] = useState<AggregatorSnapshot[]>([]);
   const [historyByJvm, setHistoryByJvm] =
     useState<Record<string, JvmHistoryPoint[]>>({});
+  const [sharding, setSharding] =
+    useState<ShardingCapabilities>(DEFAULT_SHARDING);
+  const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
+  const [selectedShard, setSelectedShardState] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +116,33 @@ export function MonitoringProvider({
     [],
   );
 
+  const setSelectedShard = useCallback(
+    (shard: number) => {
+      if (!sharding.enabled) {
+        return;
+      }
+
+      if (shard < 0 || shard >= sharding.shardCount) {
+        return;
+      }
+
+      setSelectedShardState(shard);
+      setSnapshots([]);
+      setLoading(true);
+    },
+    [sharding],
+  );
+
   const refresh = useCallback(async () => {
+    if (!capabilitiesLoaded) {
+      return;
+    }
+
     setRefreshing(true);
 
     try {
-      const nextSnapshots = await sidecarApi.getSnapshots();
+      const shard = sharding.enabled ? selectedShard : null;
+      const nextSnapshots = await sidecarApi.getSnapshots(shard);
 
       setSnapshots(nextSnapshots);
       updateHistory(nextSnapshots);
@@ -125,9 +159,63 @@ export function MonitoringProvider({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [updateHistory]);
+  }, [
+    capabilitiesLoaded,
+    selectedShard,
+    sharding.enabled,
+    updateHistory,
+  ]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadCapabilities = async () => {
+      try {
+        const metadata = await sidecarApi.getRoot();
+
+        if (cancelled) {
+          return;
+        }
+
+        const capabilities = metadata.sharding ?? DEFAULT_SHARDING;
+        const normalized: ShardingCapabilities = {
+          enabled: capabilities.enabled && capabilities.shardCount > 1,
+          shardCount: capabilities.enabled && capabilities.shardCount > 1
+            ? capabilities.shardCount
+            : 1,
+        };
+
+        setSharding(normalized);
+        setSelectedShardState((current) =>
+          Math.min(current, normalized.shardCount - 1),
+        );
+        setCapabilitiesLoaded(true);
+      } catch (cause) {
+        if (cancelled) {
+          return;
+        }
+
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Unable to load A-Haythorus capabilities.',
+        );
+        setLoading(false);
+      }
+    };
+
+    void loadCapabilities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!capabilitiesLoaded) {
+      return undefined;
+    }
+
     void refresh();
 
     const timer = window.setInterval(() => {
@@ -137,7 +225,7 @@ export function MonitoringProvider({
     return () => {
       window.clearInterval(timer);
     };
-  }, [refresh]);
+  }, [capabilitiesLoaded, refresh]);
 
   const jvms = useMemo<JvmNode[]>(
     () =>
@@ -161,6 +249,9 @@ export function MonitoringProvider({
       snapshots,
       jvms,
       historyByJvm,
+      sharding,
+      selectedShard,
+      setSelectedShard,
       loading,
       refreshing,
       error,
@@ -171,6 +262,9 @@ export function MonitoringProvider({
       snapshots,
       jvms,
       historyByJvm,
+      sharding,
+      selectedShard,
+      setSelectedShard,
       loading,
       refreshing,
       error,

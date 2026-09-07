@@ -13,6 +13,10 @@ export function TopBar({
   theme,
   onRefresh,
   onToggleTheme,
+  shardingEnabled,
+  shardCount,
+  selectedShard,
+  onShardChange,
 }: {
   title: string;
   subtitle: string;
@@ -22,6 +26,10 @@ export function TopBar({
   theme: ThemeMode;
   onRefresh: () => void;
   onToggleTheme: () => void;
+  shardingEnabled: boolean;
+  shardCount: number;
+  selectedShard: number;
+  onShardChange: (shard: number) => void;
 }) {
   return (
     <header className="topbar">
@@ -31,6 +39,31 @@ export function TopBar({
       </div>
 
       <div className="topbar-actions">
+        {shardingEnabled ? (
+          <div className="sharding-control" title="Cluster sharding is enabled">
+            <span className="sharding-status">
+              <span className="sharding-dot" />
+              Sharding enabled
+            </span>
+            <label className="shard-selector">
+              <span>Shard</span>
+              <select
+                value={selectedShard}
+                onChange={(event) =>
+                  onShardChange(Number(event.target.value))
+                }
+                aria-label="Select cluster shard"
+              >
+                {Array.from({ length: shardCount }, (_, shard) => (
+                  <option key={shard} value={shard}>
+                    {shard}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
+
         <div
           className={`connection-pill ${
             error ? 'connection-error' : ''

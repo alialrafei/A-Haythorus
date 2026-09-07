@@ -36,18 +36,35 @@ function normalizeSnapshots(response: SnapshotEnvelope): AggregatorSnapshot[] {
   return response.members ?? response.snapshots ?? [];
 }
 
+function withShard(path: string, shard: number | null | undefined): string {
+  if (shard == null) {
+    return path;
+  }
+
+  return `${path}?shard=${encodeURIComponent(shard)}`;
+}
+
 export const sidecarApi = {
   getRoot(signal?: AbortSignal) {
     return getJson<RootMetadata>(API.root, signal);
   },
 
-  async getSnapshots(signal?: AbortSignal) {
-    const response = await getJson<SnapshotEnvelope>(API.snapshot, signal);
+  async getSnapshots(
+    shard?: number | null,
+    signal?: AbortSignal,
+  ) {
+    const response = await getJson<SnapshotEnvelope>(
+      withShard(API.snapshot, shard),
+      signal,
+    );
     return normalizeSnapshots(response);
   },
 
-  getHistories(signal?: AbortSignal) {
-    return getJson<JvmHistoryResponse[]>(API.history, signal);
+  getHistories(shard?: number | null, signal?: AbortSignal) {
+    return getJson<JvmHistoryResponse[]>(
+      withShard(API.history, shard),
+      signal,
+    );
   },
 
   getJvms(signal?: AbortSignal) {
