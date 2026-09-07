@@ -7,5 +7,8 @@ public interface ShardResolver {
 
   int resolve(KubernetesPod pod);
 
+  /** Resolves the shard from the configured key without consulting a materialized override label. */
+  int resolveComputed(KubernetesPod pod);
+
   int shardCount();
 }
