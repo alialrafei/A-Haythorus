@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icon } from '@blueprintjs/core';
 import { formatRelativeTime } from '../../utils/format';
+import './TopBar.css';
 
 export type ThemeMode = 'dark' | 'light';
 
