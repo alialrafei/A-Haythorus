@@ -10,10 +10,10 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Aggregates local and peer snapshots for the local or explicitly requested shard. */
 public final class ClusterSnapshotService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ClusterSnapshotService.class);
-
   private final SidecarDiscovery discovery;
   private final SidecarClient client;
 
@@ -27,27 +27,29 @@ public final class ClusterSnapshotService {
   }
 
   public List<AggregatorSnapshot> getSnapshots() {
+    return getSnapshots(null);
+  }
+
+  public List<AggregatorSnapshot> getSnapshots(Integer requestedShard) {
     Map<String, AggregatorSnapshot> snapshots = new LinkedHashMap<>();
 
-    AggregatorSnapshot local = SnapshotService.getSnapshot();
-    addSnapshot(snapshots, local);
+    if (requestedShard == null) {
+      addSnapshot(snapshots, SnapshotService.getSnapshot());
+    }
 
     List<URI> peers;
     try {
-      peers = discovery.discover();
-      LOGGER.debug(
-          "Discovered {} peer sidecar(s); max concurrent peer requests={}",
-          peers.size(),
-          ClusterRequestExecutor.maxConcurrentRequests());
+      peers = discovery.discover(requestedShard);
+      LOGGER.debug("Discovered {} sidecar(s) for {}.", peers.size(),
+          requestedShard == null ? "local shard" : "requested shard " + requestedShard);
     } catch (Exception ex) {
       LOGGER.warn("Peer discovery failed. Returning local snapshot only.", ex);
-      return List.copyOf(snapshots.values());
+      return requestedShard == null ? List.copyOf(snapshots.values()) : List.of();
     }
 
-    List<CompletableFuture<AggregatorSnapshot>> requests =
-        peers.stream()
-            .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
-            .toList();
+    List<CompletableFuture<AggregatorSnapshot>> requests = peers.stream()
+        .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
+        .toList();
 
     for (CompletableFuture<AggregatorSnapshot> request : requests) {
       AggregatorSnapshot peerSnapshot = request.join();
@@ -69,10 +71,7 @@ public final class ClusterSnapshotService {
   }
 
   private void addSnapshot(Map<String, AggregatorSnapshot> snapshots, AggregatorSnapshot snapshot) {
-    if (snapshot == null || snapshot.getPod() == null) {
-      return;
-    }
-
+    if (snapshot == null || snapshot.getPod() == null) return;
     String key = snapshot.getPod().getNamespace() + "/" + snapshot.getPod().getName();
     snapshots.put(key, snapshot);
   }
