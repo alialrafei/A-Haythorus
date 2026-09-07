@@ -11,22 +11,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Runtime-neutral deterministic shard resolver.
- *
- * <p>Resolution order:
- *
- * <ol>
- *   <li>If the configured override label exists, use its explicit shard id.
- *   <li>Otherwise build the configured shard key.
- *   <li>Hash the UTF-8 key using SHA-256.
- *   <li>Interpret the first 8 digest bytes as an unsigned big-endian integer.
- *   <li>Take modulo {@code shardCount}.
- * </ol>
- *
- * <p>This definition is intentionally language-neutral so Java, Python, Node, Rust, or native
- * agents can reproduce exactly the same shard assignment.
- */
+/** Runtime-neutral deterministic shard resolver. */
 public final class Sha256ModuloShardResolver implements ShardResolver {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Sha256ModuloShardResolver.class);
@@ -42,10 +27,11 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
   @Override
   public int resolve(KubernetesPod pod) {
     Integer override = explicitOverride(pod);
-    if (override != null) {
-      return override;
-    }
+    return override != null ? override : resolveComputed(pod);
+  }
 
+  @Override
+  public int resolveComputed(KubernetesPod pod) {
     String key;
     try {
       key = keyResolver.resolve(pod, config.keyFields());
@@ -64,7 +50,6 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
     byte[] digest = sha256(key);
     byte[] firstEightBytes = Arrays.copyOf(digest, Long.BYTES);
     BigInteger hash64 = new BigInteger(1, firstEightBytes);
-
     return hash64.mod(BigInteger.valueOf(config.shardCount())).intValue();
   }
 
@@ -96,13 +81,8 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
 
     if (shard < 0 || shard >= config.shardCount()) {
       throw new IllegalStateException(
-          "Shard override "
-              + shard
-              + " for pod "
-              + podName(pod)
-              + " is outside [0, "
-              + (config.shardCount() - 1)
-              + "].");
+          "Shard override " + shard + " for pod " + podName(pod) + " is outside [0, "
+              + (config.shardCount() - 1) + "].");
     }
 
     return shard;
@@ -110,8 +90,7 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
 
   private byte[] sha256(String key) {
     try {
-      return MessageDigest.getInstance("SHA-256")
-          .digest(key.getBytes(StandardCharsets.UTF_8));
+      return MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
     } catch (NoSuchAlgorithmException ex) {
       throw new IllegalStateException("SHA-256 is unavailable in this JVM.", ex);
     }
