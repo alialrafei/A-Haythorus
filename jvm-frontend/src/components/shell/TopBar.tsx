@@ -42,27 +42,30 @@ export function TopBar({
         {shardingEnabled ? (
           <div className="sharding-control" title="Cluster sharding is enabled">
             <span className="sharding-status">
-              <span className="sharding-dot" />
-              Sharding enabled
+              <span className="sharding-dot sharding-dot-enabled" />
+              <span>Sharding</span>
             </span>
-            <label className="shard-selector">
-              <span>Shard</span>
-              <select
-                value={selectedShard}
-                onChange={(event) =>
-                  onShardChange(Number(event.target.value))
-                }
-                aria-label="Select cluster shard"
-              >
-                {Array.from({ length: shardCount }, (_, shard) => (
-                  <option key={shard} value={shard}>
-                    {shard}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <select
+              className="shard-select"
+              value={selectedShard}
+              onChange={(event) => onShardChange(Number(event.target.value))}
+              aria-label="Select cluster shard"
+            >
+              {Array.from({ length: shardCount }, (_, shard) => (
+                <option key={shard} value={shard}>
+                  {shard}
+                </option>
+              ))}
+            </select>
           </div>
-        ) : null}
+        ) : (
+          <div className="sharding-control sharding-disabled" title="Cluster sharding is disabled">
+            <span className="sharding-status">
+              <span className="sharding-dot sharding-dot-disabled" />
+              <span>Sharding</span>
+            </span>
+          </div>
+        )}
 
         <div
           className={`connection-pill ${
