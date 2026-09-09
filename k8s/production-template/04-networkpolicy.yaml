@@ -1,0 +1,49 @@
+# Platform note:
+# Replace the ingress/router and Kubernetes API selectors with values enforced
+# by the target cluster's CNI/platform. Do not copy provider-specific selectors blindly.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ${AH_NETWORK_POLICY_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      a-haythorus.io/enabled: "true"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Enterprise ingress / authentication gateway.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              ${INGRESS_NAMESPACE_LABEL_KEY}: "${INGRESS_NAMESPACE_LABEL_VALUE}"
+      ports:
+        - protocol: TCP
+          port: ${AH_PORT}
+    # Peer sidecars in the same namespace.
+    - from:
+        - podSelector:
+            matchLabels:
+              a-haythorus.io/enabled: "true"
+      ports:
+        - protocol: TCP
+          port: ${AH_PORT}
+  egress:
+    # Peer sidecars in the same namespace.
+    - to:
+        - podSelector:
+            matchLabels:
+              a-haythorus.io/enabled: "true"
+      ports:
+        - protocol: TCP
+          port: ${AH_PORT}
+    # Kubernetes API. Configure selectors according to the target cluster.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ${KUBERNETES_API_NAMESPACE_LABEL_KEY}: "${KUBERNETES_API_NAMESPACE_LABEL_VALUE}"
+      ports:
+        - protocol: TCP
+          port: 443

@@ -1,0 +1,28 @@
+# Standard Kubernetes Ingress entry point.
+# Authentication/SSO is intentionally delegated to the platform ingress/auth layer.
+# Configure TLS secret and ingressClassName for the target environment.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${AH_INGRESS_NAME}
+  namespace: ${NAMESPACE}
+  annotations:
+    # Optional platform-specific authentication annotations.
+    ${AUTH_ANNOTATION_KEY}: "${AUTH_ANNOTATION_VALUE}"
+spec:
+  ingressClassName: ${INGRESS_CLASS_NAME}
+  tls:
+    - hosts:
+        - ${AH_HOST}
+      secretName: ${AH_TLS_SECRET}
+  rules:
+    - host: ${AH_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ${AH_SERVICE_NAME}
+                port:
+                  name: http
