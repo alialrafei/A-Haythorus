@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APP_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  replicas: ${APP_REPLICAS}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ${APP_NAME}
+  template:
+    metadata:
+      labels:
+        # Stable application identity used by the shard key.
+        # All replicas of this application must carry the same value.
+        app.kubernetes.io/name: ${APP_NAME}
+        app.kubernetes.io/instance: ${APP_INSTANCE}
+        a-haythorus.io/enabled: "true"
+    spec:
+      # Required for local JVM/process discovery.
+      shareProcessNamespace: true
+      serviceAccountName: ${AH_SERVICE_ACCOUNT}
+      containers:
+        - name: ${APP_CONTAINER_NAME}
+          image: ${APP_DOCKER_IMAGE}
+          imagePullPolicy: ${APP_IMAGE_PULL_POLICY}
+          ports:
+            - name: application
+              containerPort: ${APP_PORT}
+              protocol: TCP
+          resources:
+            requests:
+              cpu: ${APP_CPU_REQUEST}
+              memory: ${APP_MEMORY_REQUEST}
+            limits:
+              cpu: ${APP_CPU_LIMIT}
+              memory: ${APP_MEMORY_LIMIT}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+        - name: a-haythorus
+          image: ${AH_DOCKER_IMAGE}
+          imagePullPolicy: ${AH_IMAGE_PULL_POLICY}
+          ports:
+            - name: http
+              containerPort: ${AH_PORT}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: ${AH_CLUSTER_CONFIG_NAME}
+          env:
+            - name: AH_RUNTIME_MODE
+              value: "kubernetes"
+            - name: AH_SERVER_HOST
+              value: "0.0.0.0"
+            - name: AH_SERVER_PORT
+              value: "${AH_PORT}"
+            - name: AH_UI_DIR
+              value: "/app/ui"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: APP_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app.kubernetes.io/name']
+            - name: AH_DISCOVERY_LABEL
+              value: "a-haythorus.io/enabled=true"
+            # Keep the collector cadence at 10 seconds.
+            - name: AH_COLLECTOR_INTERVAL_MS
+              value: "10000"
+          resources:
+            requests:
+              cpu: ${AH_CPU_REQUEST}
+              memory: ${AH_MEMORY_REQUEST}
+            limits:
+              cpu: ${AH_CPU_LIMIT}
+              memory: ${AH_MEMORY_LIMIT}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
