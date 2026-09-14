@@ -56,6 +56,9 @@ spec:
         - name: dummy-java-app
           image: ahaythorus-dummy-app:dev
           imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: shared-tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 100m
@@ -70,6 +73,9 @@ spec:
             - name: http
               containerPort: 8899
               protocol: TCP
+          volumeMounts:
+            - name: shared-tmp
+              mountPath: /tmp
           env:
             - name: AH_RUNTIME_MODE
               value: kubernetes
@@ -84,13 +90,13 @@ spec:
             - name: AH_COLLECTOR_INTERVAL_MS
               value: "10000"
             - name: AH_HISTORY_MAX_SAMPLES
-              value: "120"
+              value: "30"
             - name: AH_ANALYSIS_WINDOW_SECONDS
               value: "60"
             - name: AH_LEAK_WINDOW_SECONDS
-              value: "60"
+              value: "300"
             - name: AH_LEAK_EWMA_ALPHA
-              value: "0.35"
+              value: "0.25"
             - name: AH_CLUSTER_MAX_CONCURRENT_REQUESTS
               value: "8"
             - name: AH_CLUSTER_SHARDING_ENABLED
@@ -100,7 +106,7 @@ spec:
             - name: AH_CLUSTER_SHARD_ALGORITHM
               value: sha256-modulo
             - name: AH_CLUSTER_SHARD_KEY_FIELDS
-              value: namespace,pod
+              value: namespace,label:app.kubernetes.io/name
             - name: AH_CLUSTER_SHARD_OVERRIDE_LABEL
               value: a-haythorus.io/shard
             - name: AH_CLUSTER_SHARD_MISSING_KEY_POLICY
@@ -122,7 +128,9 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
             - name: APP_NAME
-              value: dummy-java-app
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app.kubernetes.io/name']
           readinessProbe:
             httpGet:
               path: /
@@ -143,6 +151,9 @@ spec:
             limits:
               cpu: "1"
               memory: 768Mi
+      volumes:
+        - name: shared-tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

@@ -22,9 +22,9 @@ The resulting score is diagnostic evidence strength, not proof or probability of
 
 ```properties
 collector.interval.ms=10000
-history.max.samples=120
-leak.window.seconds=60
-leak.ewma.alpha=0.35
+history.max.samples=30
+leak.window.seconds=300
+leak.ewma.alpha=0.25
 
 analysis.memory.heap-retention.weight=1.0
 analysis.memory.old-gen-retention.weight=1.0
@@ -48,7 +48,7 @@ AH_ANALYSIS_MEMORY_HISTOGRAM_GROWTH_WEIGHT
 
 The default collection interval is 10 seconds.
 
-The analysis window is time-based. With a 60-second window and a 10-second cadence, the analyzer typically sees roughly six intervals once the window is mature.
+The leak analysis window is 300 seconds. The retained history is bounded to 30 samples; the analyzer also evaluates the current sample, giving the rolling leak calculation approximately 30 ten-second intervals once the window is mature. The longer observation horizon is intentional: normal warm-up and short-lived allocation bursts should have more opportunity to be reclaimed before the memory-retention score becomes strongly persistent.
 
 ---
 
@@ -380,7 +380,8 @@ This replaces sample-count-based maturity assumptions.
 
 ---
 
-## 13. Historical smoothing: 
+## 13. Historical smoothing
+
 The primary leak confidence is smoothed over time:
 
 ```text
@@ -392,13 +393,13 @@ where `E_t` is the current-window score after maturity scaling.
 Default:
 
 ```text
-alpha = 0.35
+alpha = 0.25
 ```
 
 so:
 
 ```text
-L_t = 0.35 * E_t + 0.65 * L_(t-1)
+L_t = 0.25 * E_t + 0.75 * L_(t-1)
 ```
 
 Recursive expansion gives:
@@ -416,14 +417,14 @@ So historical weights decay geometrically:
 alpha * (1-alpha)^k
 ```
 
-For `alpha = 0.35`:
+For `alpha = 0.25`:
 
 ```text
-current     0.350
-1 old       0.228
-2 old       0.148
-3 old       0.096
-4 old       0.062
+current     0.250
+1 old       0.188
+2 old       0.141
+3 old       0.105
+4 old       0.079
 ...
 ```
 
@@ -472,11 +473,11 @@ With full maturity:
 instantaneousLeakScore = 66.67
 ```
 
-If the previous confidence is `40` and `alpha=0.35`:
+If the previous confidence is `40` and `alpha=0.25`:
 
 ```text
-L_t = 0.35 * 66.67 + 0.65 * 40
-    = 49.33
+L_t = 0.25 * 66.67 + 0.75 * 40
+    = 46.67
 ```
 
 The unavailable GC signal does not contribute a zero to the denominator.

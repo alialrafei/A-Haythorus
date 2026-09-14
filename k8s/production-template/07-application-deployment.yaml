@@ -28,6 +28,9 @@ spec:
             - name: application
               containerPort: ${APP_PORT}
               protocol: TCP
+          volumeMounts:
+            - name: shared-tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: ${APP_CPU_REQUEST}
@@ -50,6 +53,9 @@ spec:
             - name: http
               containerPort: ${AH_PORT}
               protocol: TCP
+          volumeMounts:
+            - name: shared-tmp
+              mountPath: /tmp
           envFrom:
             - configMapRef:
                 name: ${AH_CLUSTER_CONFIG_NAME}
@@ -62,6 +68,14 @@ spec:
               value: "${AH_PORT}"
             - name: AH_UI_DIR
               value: "/app/ui"
+            - name: AH_HISTORY_MAX_SAMPLES
+              value: "180"
+            - name: AH_ANALYSIS_WINDOW_SECONDS
+              value: "60"
+            - name: AH_LEAK_WINDOW_SECONDS
+              value: "300"
+            - name: AH_LEAK_EWMA_ALPHA
+              value: "0.25"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -102,3 +116,8 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
+      volumes:
+        # The Attach API uses the target JVM's local /tmp attach endpoint.
+        # Sharing /tmp lets the sidecar discover/attach to the JVM across containers.
+        - name: shared-tmp
+          emptyDir: {}

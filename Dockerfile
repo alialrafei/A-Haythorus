@@ -1,4 +1,8 @@
-FROM node:22-alpine AS ui-build
+# syntax=docker/dockerfile:1
+
+# The build outputs are architecture-independent. Run the build stages on the
+# native CI builder while selecting the correct architecture for the runtime image.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS ui-build
 
 WORKDIR /ui
 
@@ -11,7 +15,7 @@ COPY jvm-frontend/ ./
 RUN npm run build:web
 
 
-FROM maven:3.9-eclipse-temurin-25 AS java-build
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS java-build
 
 WORKDIR /build
 
@@ -24,7 +28,9 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 
-FROM eclipse-temurin:25-jdk
+# eclipse-temurin publishes linux/amd64 and linux/arm64 variants.
+# TARGETPLATFORM selects the matching runtime image when buildx creates a multi-arch image.
+FROM --platform=$TARGETPLATFORM eclipse-temurin:25-jdk
 
 WORKDIR /app
 

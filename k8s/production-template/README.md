@@ -83,6 +83,18 @@ payments-api-ghi789  ─┘
 
 The `a-haythorus.io/shard` label is a materialized index produced by the existing A-Haythorus shard resolver; it is not intended to be manually assigned.
 
+## JVM process discovery
+
+The Pod must use:
+
+```yaml
+shareProcessNamespace: true
+```
+
+and the application and A-Haythorus containers share an `emptyDir` volume mounted at `/tmp`. The shared `/tmp` makes the JVM Attach API's local attach endpoint visible to the sidecar when the JVM and sidecar use separate container filesystems.
+
+Do not replace this with privileged mode or additional Linux capabilities. The sidecar is intentionally using the JVM Attach API plus the shared process namespace for process-level observability.
+
 ## Networking
 
 The base deployment uses a `ClusterIP` Service and standard Kubernetes `Ingress`. The external authentication/SSO layer is deliberately platform-specific and should be configured at the ingress/authentication gateway. The repository does not require an application-specific Node.js server.
