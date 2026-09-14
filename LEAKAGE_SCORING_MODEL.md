@@ -22,7 +22,7 @@ The resulting score is diagnostic evidence strength, not proof or probability of
 
 ```properties
 collector.interval.ms=10000
-history.max.samples=180
+history.max.samples=30
 leak.window.seconds=300
 leak.ewma.alpha=0.25
 
@@ -48,7 +48,7 @@ AH_ANALYSIS_MEMORY_HISTOGRAM_GROWTH_WEIGHT
 
 The default collection interval is 10 seconds.
 
-The leak analysis window is now 300 seconds. With a 10-second collection cadence, the analyzer can observe roughly 30 intervals once the window is mature. The longer observation horizon is intentional: normal warm-up and short-lived allocation bursts should have more opportunity to be reclaimed before the memory-retention score becomes strongly persistent.
+The leak analysis window is 300 seconds. The retained history is bounded to 30 samples; the analyzer also evaluates the current sample, giving the rolling leak calculation approximately 30 ten-second intervals once the window is mature. The longer observation horizon is intentional: normal warm-up and short-lived allocation bursts should have more opportunity to be reclaimed before the memory-retention score becomes strongly persistent.
 
 ---
 
