@@ -221,7 +221,7 @@ public class JvmCollector implements Runnable {
   private void collectProcessMemory(JvmSnapshot snapshot) {
     try {
       snapshot.setProcessMemory(ProcessMemoryCollector.collect(pid, mbeanServer));
-    } catch (IOException | SecurityException ex) {
+    } catch (SecurityException ex) {
       LOGGER.warn(
           "Failed collecting native process memory for pid={}; JVM metrics remain available.", pid, ex);
     }
