@@ -23,8 +23,6 @@ public final class ConfigLoader {
           Map.entry("history.max.samples", "AH_HISTORY_MAX_SAMPLES"),
           Map.entry("analysis.window.seconds", "AH_ANALYSIS_WINDOW_SECONDS"),
           Map.entry("leak.window.seconds", "AH_LEAK_WINDOW_SECONDS"),
-          Map.entry("leak.minimum.samples", "AH_LEAK_MINIMUM_SAMPLES"),
-          Map.entry("leak.minimum.supporting.signals", "AH_LEAK_MINIMUM_SUPPORTING_SIGNALS"),
           Map.entry("leak.ewma.alpha", "AH_LEAK_EWMA_ALPHA"),
           Map.entry("analysis.memory.heap-retention.weight", "AH_ANALYSIS_MEMORY_HEAP_RETENTION_WEIGHT"),
           Map.entry("analysis.memory.old-gen-retention.weight", "AH_ANALYSIS_MEMORY_OLD_GEN_RETENTION_WEIGHT"),
