@@ -19,6 +19,15 @@ spec:
     spec:
       # Required for local JVM/process discovery.
       shareProcessNamespace: true
+
+      # The sidecar must run as the same effective Linux UID as the target JVM
+      # for reliable /proc inspection and JVM Attach API access. Set this to the
+      # UID used by the application image. On platforms that inject a workload
+      # UID (for example OpenShift SCC), leave this aligned with that policy.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: ${WORKLOAD_UID}
+
       serviceAccountName: ${AH_SERVICE_ACCOUNT}
       containers:
         - name: ${APP_CONTAINER_NAME}
@@ -39,7 +48,6 @@ spec:
               cpu: ${APP_CPU_LIMIT}
               memory: ${APP_MEMORY_LIMIT}
           securityContext:
-            runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -69,7 +77,7 @@ spec:
             - name: AH_UI_DIR
               value: "/app/ui"
             - name: AH_HISTORY_MAX_SAMPLES
-              value: "180"
+              value: "30"
             - name: AH_ANALYSIS_WINDOW_SECONDS
               value: "60"
             - name: AH_LEAK_WINDOW_SECONDS
@@ -109,7 +117,6 @@ spec:
               cpu: ${AH_CPU_LIMIT}
               memory: ${AH_MEMORY_LIMIT}
           securityContext:
-            runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
