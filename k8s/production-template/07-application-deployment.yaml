@@ -19,15 +19,6 @@ spec:
     spec:
       # Required for local JVM/process discovery.
       shareProcessNamespace: true
-
-      # The sidecar must run as the same effective Linux UID as the target JVM
-      # for reliable /proc inspection and JVM Attach API access. Set this to the
-      # UID used by the application image. On platforms that inject a workload
-      # UID (for example OpenShift SCC), leave this aligned with that policy.
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: ${WORKLOAD_UID}
-
       serviceAccountName: ${AH_SERVICE_ACCOUNT}
       containers:
         - name: ${APP_CONTAINER_NAME}
@@ -48,6 +39,10 @@ spec:
               cpu: ${APP_CPU_LIMIT}
               memory: ${APP_MEMORY_LIMIT}
           securityContext:
+            # A-Haythorus must use the same effective UID as the target JVM.
+            # Replace ${WORKLOAD_UID} with the UID used by the application image.
+            runAsNonRoot: true
+            runAsUser: ${WORKLOAD_UID}
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -117,6 +112,9 @@ spec:
               cpu: ${AH_CPU_LIMIT}
               memory: ${AH_MEMORY_LIMIT}
           securityContext:
+            # Must match the target application's UID for /proc and Attach API access.
+            runAsNonRoot: true
+            runAsUser: ${WORKLOAD_UID}
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -124,7 +122,6 @@ spec:
             seccompProfile:
               type: RuntimeDefault
       volumes:
-        # The Attach API uses the target JVM's local /tmp attach endpoint.
-        # Sharing /tmp lets the sidecar discover/attach to the JVM across containers.
+        # Both containers see the JVM's local attach socket/files.
         - name: shared-tmp
           emptyDir: {}
