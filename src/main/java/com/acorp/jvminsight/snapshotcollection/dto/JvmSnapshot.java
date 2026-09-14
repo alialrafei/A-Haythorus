@@ -7,6 +7,7 @@ import com.acorp.jvminsight.memory.histogram.ClassHistogramEntry;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.system.ProcessCpuSnapshot;
 import com.acorp.jvminsight.system.ProcessIoSnapshot;
+import com.acorp.jvminsight.system.ProcessMemorySnapshot;
 import com.acorp.jvminsight.thread.dto.ThreadDumpSnapshot;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.lang.management.ThreadInfo;
@@ -32,5 +33,6 @@ public class JvmSnapshot {
   private Map<Long, Long> threadCpuTimes;
   private ProcessCpuSnapshot processCpu;
   private ProcessIoSnapshot processIo;
+  private ProcessMemorySnapshot processMemory;
   private ThreadDumpSnapshot dumpSnapshot;
 }
