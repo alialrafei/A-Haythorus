@@ -36,6 +36,19 @@ export interface MemorySnapshot {
   nonHeapCommitted: number;
 }
 
+export interface ProcessMemorySnapshot {
+  residentBytes: number;
+  anonymousResidentBytes: number;
+  fileResidentBytes: number;
+  sharedResidentBytes: number;
+  dataBytes: number;
+  mainThreadStackBytes: number;
+  allThreadStacksBytes: number;
+  swapBytes: number;
+  directBufferBytes: number;
+  mappedBufferBytes: number;
+}
+
 export interface GcSnapshot {
   name: string;
   collectionCount: number;
@@ -266,6 +279,7 @@ export interface JvmSnapshot {
   dumpSnapshot: ThreadDumpSnapshot | null;
   processCpu: ProcessCpuSnapshot | null;
   processIo: ProcessIoSnapshot | null;
+  processMemory: ProcessMemorySnapshot | null;
 }
 
 export interface JvmHistorySample {
@@ -280,6 +294,7 @@ export interface JvmHistorySample {
   processReadBytes: number;
   processWriteBytes: number;
   leakConfidence: number;
+  processMemory: ProcessMemorySnapshot | null;
 }
 
 export interface JvmHistoryResponse {
@@ -321,4 +336,10 @@ export interface JvmHistoryPoint {
   systemCpuLoad: number;
   readBytesPerSecond: number;
   writeBytesPerSecond: number;
+  processResidentBytes: number;
+  processAnonymousResidentBytes: number;
+  processFileResidentBytes: number;
+  processAllThreadStacksBytes: number;
+  processDirectBufferBytes: number;
+  processMappedBufferBytes: number;
 }
