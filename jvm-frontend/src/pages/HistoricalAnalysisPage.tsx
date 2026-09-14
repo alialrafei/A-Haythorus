@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 import { sidecarApi } from '../api/sidecarApi';
+import { useMonitoring } from '../context/MonitoringContext';
 import type {
   AggregatorSnapshot,
   JvmHistoryResponse,
@@ -26,6 +27,7 @@ import {
 const REFRESH_MS = 5_000;
 
 export function HistoricalAnalysisPage() {
+  const { sharding, selectedShard } = useMonitoring();
   const [histories, setHistories] = useState<JvmHistoryResponse[]>([]);
   const [snapshots, setSnapshots] = useState<AggregatorSnapshot[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -35,9 +37,10 @@ export function HistoricalAnalysisPage() {
 
     async function refresh() {
       try {
+        const shard = sharding.enabled ? selectedShard : null;
         const [nextHistories, nextSnapshots] = await Promise.all([
-          sidecarApi.getHistories(),
-          sidecarApi.getSnapshots(),
+          sidecarApi.getHistories(shard),
+          sidecarApi.getSnapshots(shard),
         ]);
 
         if (!cancelled) {
@@ -63,7 +66,7 @@ export function HistoricalAnalysisPage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [selectedShard, sharding.enabled]);
 
   return (
     <div className="page-stack">
