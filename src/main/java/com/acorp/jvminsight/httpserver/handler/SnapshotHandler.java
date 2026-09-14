@@ -7,12 +7,14 @@ import com.acorp.jvminsight.container.dto.AggregatorSnapshot;
 import com.acorp.jvminsight.httpserver.constant.RouteConstants;
 import com.acorp.jvminsight.httpserver.service.SnapshotService;
 import com.acorp.jvminsight.httpserver.util.JsonResponse;
+import com.acorp.jvminsight.snapshotcollection.dto.JvmHistoryResponse;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,11 +39,13 @@ public final class SnapshotHandler implements HttpHandler {
     LOGGER.debug("Handling snapshot API request '{}'.", path);
 
     try {
+      Integer requestedShard = parseRequestedShard(exchange);
+
       if (RouteConstants.SNAPSHOT.equals(path)) {
         if (isLocalOnlyRequest(exchange)) {
           JsonResponse.ok(exchange, SnapshotService.getSnapshot());
         } else {
-          JsonResponse.ok(exchange, CLUSTER_SNAPSHOT_SERVICE.getSnapshots(parseRequestedShard(exchange)));
+          JsonResponse.ok(exchange, CLUSTER_SNAPSHOT_SERVICE.getSnapshots(requestedShard));
         }
         return;
       }
@@ -50,21 +54,23 @@ public final class SnapshotHandler implements HttpHandler {
         if (isLocalOnlyRequest(exchange)) {
           JsonResponse.ok(exchange, SnapshotService.getLocalJvmHistories());
         } else {
-          JsonResponse.ok(exchange, CLUSTER_HISTORY_SERVICE.getHistories(parseRequestedShard(exchange)));
+          JsonResponse.ok(exchange, CLUSTER_HISTORY_SERVICE.getHistories(requestedShard));
         }
         return;
       }
 
-      AggregatorSnapshot snapshot = SnapshotService.getSnapshot();
+      List<AggregatorSnapshot> snapshots = getSnapshotsForRequest(exchange, requestedShard);
+
       if (RouteConstants.JVMS.equals(path)) {
-        List<JvmSnapshot> jvms = snapshot.getJvmSnapshots();
-        JsonResponse.ok(exchange, jvms == null ? List.of() : jvms);
+        JsonResponse.ok(exchange, flattenJvmSnapshots(snapshots));
         return;
       }
+
       if (path.startsWith(RouteConstants.JVMS + "/")) {
-        handleJvmRoute(exchange, snapshot, path);
+        handleJvmRoute(exchange, snapshots, requestedShard, path);
         return;
       }
+
       JsonResponse.notFound(exchange);
     } catch (IllegalArgumentException ex) {
       JsonResponse.badRequest(exchange, ex.getMessage());
@@ -74,9 +80,28 @@ public final class SnapshotHandler implements HttpHandler {
     }
   }
 
+  private List<AggregatorSnapshot> getSnapshotsForRequest(
+      HttpExchange exchange, Integer requestedShard) {
+    if (isLocalOnlyRequest(exchange) || requestedShard == null) {
+      return List.of(SnapshotService.getSnapshot());
+    }
+    return CLUSTER_SNAPSHOT_SERVICE.getSnapshots(requestedShard);
+  }
+
+  private List<JvmSnapshot> flattenJvmSnapshots(List<AggregatorSnapshot> snapshots) {
+    List<JvmSnapshot> result = new ArrayList<>();
+    for (AggregatorSnapshot snapshot : snapshots) {
+      if (snapshot != null && snapshot.getJvmSnapshots() != null) {
+        result.addAll(snapshot.getJvmSnapshots());
+      }
+    }
+    return List.copyOf(result);
+  }
+
   private Integer parseRequestedShard(HttpExchange exchange) {
     String query = exchange.getRequestURI().getRawQuery();
     if (query == null || query.isBlank()) return null;
+
     for (String parameter : query.split("&")) {
       String[] pair = parameter.split("=", 2);
       if (pair.length == 2 && "shard".equals(pair[0])) {
@@ -90,8 +115,13 @@ public final class SnapshotHandler implements HttpHandler {
     return null;
   }
 
-  private void handleJvmRoute(HttpExchange exchange, AggregatorSnapshot aggregatorSnapshot, String path)
+  private void handleJvmRoute(
+      HttpExchange exchange,
+      List<AggregatorSnapshot> aggregatorSnapshots,
+      Integer requestedShard,
+      String path)
       throws IOException {
+
     String remaining = path.substring((RouteConstants.JVMS + "/").length());
     String[] segments = remaining.split("/");
     if (segments.length == 0 || segments[0].isBlank()) {
@@ -102,6 +132,7 @@ public final class SnapshotHandler implements HttpHandler {
       JsonResponse.notFound(exchange);
       return;
     }
+
     long pid;
     try {
       pid = Long.parseLong(segments[0]);
@@ -109,20 +140,24 @@ public final class SnapshotHandler implements HttpHandler {
       JsonResponse.badRequest(exchange, "Invalid JVM PID: " + segments[0]);
       return;
     }
-    Optional<JvmSnapshot> result = findJvm(aggregatorSnapshot, pid);
+
+    Optional<JvmSnapshot> result = findJvm(aggregatorSnapshots, pid);
     if (result.isEmpty()) {
       JsonResponse.notFound(exchange, "No JVM snapshot found for PID " + pid);
       return;
     }
+
     JvmSnapshot jvm = result.get();
     if (segments.length == 1) {
       JsonResponse.ok(exchange, jvm);
       return;
     }
-    routeJvmResource(exchange, jvm, segments[1]);
+
+    routeJvmResource(exchange, jvm, requestedShard, segments[1]);
   }
 
-  private void routeJvmResource(HttpExchange exchange, JvmSnapshot snapshot, String resource)
+  private void routeJvmResource(
+      HttpExchange exchange, JvmSnapshot snapshot, Integer requestedShard, String resource)
       throws IOException {
     switch (resource) {
       case RouteConstants.MEMORY -> JsonResponse.ok(exchange, snapshot.getMemory());
@@ -137,7 +172,7 @@ public final class SnapshotHandler implements HttpHandler {
       case RouteConstants.DEADLOCKS -> handleDeadlocks(exchange, snapshot);
       case RouteConstants.TIMESTAMP -> handleTimestamp(exchange, snapshot);
       case RouteConstants.JVM_HISTORY ->
-          handleHistory(exchange, SnapshotService.getJvmHistory(snapshot.getPid()), snapshot.getPid());
+          handleHistory(exchange, snapshot.getPid(), requestedShard);
       default -> JsonResponse.notFound(exchange, "Unknown JVM resource: " + resource);
     }
   }
@@ -168,18 +203,39 @@ public final class SnapshotHandler implements HttpHandler {
     JsonResponse.ok(exchange, response);
   }
 
-  private void handleHistory(HttpExchange exchange, List<JvmHistorySample> history, long pid)
+  private void handleHistory(HttpExchange exchange, long pid, Integer requestedShard)
       throws IOException {
+    List<JvmHistoryResponse> histories =
+        isLocalOnlyRequest(exchange) || requestedShard == null
+            ? SnapshotService.getLocalJvmHistories()
+            : CLUSTER_HISTORY_SERVICE.getHistories(requestedShard);
+
+    List<JvmHistoryResponse> matches =
+        histories.stream().filter(history -> history.pid() == pid).toList();
+
+    if (matches.isEmpty()) {
+      JsonResponse.notFound(exchange, "No JVM history found for PID " + pid);
+      return;
+    }
+
+    // PID is only unique inside a Pod. Keep the existing response shape for the common
+    // one-JVM-per-Pod case and return the first deterministic match when a shard contains
+    // multiple Pods with the same PID.
+    JvmHistoryResponse history = matches.get(0);
     Map<String, Object> response = new LinkedHashMap<>();
     response.put("pid", pid);
+    response.put("pod", history.pod());
     response.put("timestamp", Instant.now());
-    response.put("history", history);
+    response.put("history", history.history());
     JsonResponse.ok(exchange, response);
   }
 
-  private Optional<JvmSnapshot> findJvm(AggregatorSnapshot snapshot, long pid) {
-    if (snapshot.getJvmSnapshots() == null) return Optional.empty();
-    return snapshot.getJvmSnapshots().stream().filter(jvm -> jvm.getPid() == pid).findFirst();
+  private Optional<JvmSnapshot> findJvm(List<AggregatorSnapshot> snapshots, long pid) {
+    return snapshots.stream()
+        .filter(snapshot -> snapshot != null && snapshot.getJvmSnapshots() != null)
+        .flatMap(snapshot -> snapshot.getJvmSnapshots().stream())
+        .filter(jvm -> jvm.getPid() == pid)
+        .findFirst();
   }
 
   private String normalizePath(String path) {
