@@ -1,6 +1,6 @@
 package com.acorp.jvminsight.discovery;
 
-import com.sun.tools.attach.VirtualMachineDescriptor;
+import com.sun.tools.attach.VirtualMachine;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
