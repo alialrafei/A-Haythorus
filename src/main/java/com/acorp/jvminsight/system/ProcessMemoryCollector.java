@@ -6,32 +6,30 @@ import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 
-/** Collects process-native memory indicators from Linux /proc and JVM buffer pools. */
+/** Collects process-level memory indicators from Linux /proc and JVM buffer pools. */
 public final class ProcessMemoryCollector {
 
   private ProcessMemoryCollector() {}
 
-  public static ProcessMemorySnapshot collect(long pid, MBeanServerConnection mbeanServer)
-      throws IOException {
-    Map<String, Long> status = readStatus(pid);
+  public static ProcessMemorySnapshot collect(long pid, MBeanServerConnection mbeanServer) {
+    Map<String, Long> status = readStatusSafely(pid);
 
     long allThreadStacks = 0L;
     Path taskDir = Path.of("/proc", Long.toString(pid), "task");
     try (var tasks = Files.list(taskDir)) {
       for (Path task : tasks.toList()) {
         try {
-          allThreadStacks += readStatusValue(task.resolve("status"), "VmStk");
+          allThreadStacks += kb(readStatus(task.resolve("status")), "VmStk");
         } catch (IOException | SecurityException ignored) {
-          // A thread can disappear between directory listing and status read.
+          // A thread may disappear or be inaccessible between enumeration and read.
         }
       }
-    } catch (SecurityException ex) {
-      throw ex;
+    } catch (IOException | SecurityException ignored) {
+      // Per-thread stack accounting is optional; keep the rest of process memory available.
     }
 
     long direct = bufferPoolBytes(mbeanServer, "direct");
@@ -50,8 +48,12 @@ public final class ProcessMemoryCollector {
         mapped);
   }
 
-  private static Map<String, Long> readStatus(long pid) throws IOException {
-    return readStatus(Path.of("/proc", Long.toString(pid), "status"));
+  private static Map<String, Long> readStatusSafely(long pid) {
+    try {
+      return readStatus(Path.of("/proc", Long.toString(pid), "status"));
+    } catch (IOException | SecurityException ignored) {
+      return Map.of();
+    }
   }
 
   private static Map<String, Long> readStatus(Path path) throws IOException {
@@ -65,17 +67,13 @@ public final class ProcessMemoryCollector {
       try {
         values.put(key, Long.parseLong(number));
       } catch (NumberFormatException ignored) {
-        // Ignore fields that are not numeric.
+        // Ignore non-numeric fields.
       }
     }
     return values;
   }
 
-  private static long readStatusValue(Path path, String key) throws IOException {
-    return kb(readStatus(path), key);
-  }
-
-  /** /proc status memory values are reported in kB on Linux. */
+  /** Linux /proc status memory values are reported in kB. */
   private static long kb(Map<String, Long> values, String key) {
     return values.getOrDefault(key, 0L) * 1024L;
   }
