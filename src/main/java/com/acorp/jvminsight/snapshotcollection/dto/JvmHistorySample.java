@@ -1,8 +1,9 @@
 package com.acorp.jvminsight.snapshotcollection.dto;
 
 import com.acorp.jvminsight.memory.GcSnapshot;
-import com.acorp.jvminsight.runtime.jvm.JvmProcessHistoryAdapter;
 import com.acorp.jvminsight.memory.MemoryPoolSnapshot;
+import com.acorp.jvminsight.runtime.jvm.JvmProcessHistoryAdapter;
+import com.acorp.jvminsight.system.ProcessMemorySnapshot;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,7 +12,7 @@ import java.util.Map;
  * Lightweight JVM history.
  *
  * <p>Runtime-neutral process counters live in {@link ProcessHistorySample}. JVM-only memory, GC,
- * and thread state remain here.
+ * thread state, and process-native memory remain here.
  */
 public record JvmHistorySample(
     Instant timestamp,
@@ -24,7 +25,8 @@ public record JvmHistorySample(
     long processCpuTimeNanos,
     long processReadBytes,
     long processWriteBytes,
-    double leakConfidence) {
+    double leakConfidence,
+    ProcessMemorySnapshot processMemory) {
 
   public static JvmHistorySample from(JvmSnapshot snapshot) {
     long heap = snapshot.getMemory() == null ? 0 : snapshot.getMemory().heapUsed;
@@ -64,6 +66,7 @@ public record JvmHistorySample(
         process.cpuTimeNanos(),
         process.readBytes(),
         process.writeBytes(),
-        confidence);
+        confidence,
+        snapshot.getProcessMemory());
   }
 }
