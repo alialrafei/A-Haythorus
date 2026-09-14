@@ -16,6 +16,7 @@ APP_IMAGE_PULL_POLICY
 APP_PORT
 APP_REPLICAS
 APP_SERVICE_ACCOUNT
+WORKLOAD_UID
 
 APP_CPU_REQUEST
 APP_CPU_LIMIT
@@ -83,7 +84,7 @@ payments-api-ghi789  ─┘
 
 The `a-haythorus.io/shard` label is a materialized index produced by the existing A-Haythorus shard resolver; it is not intended to be manually assigned.
 
-## JVM process discovery
+## JVM process discovery and Linux permissions
 
 The Pod must use:
 
@@ -93,7 +94,26 @@ shareProcessNamespace: true
 
 and the application and A-Haythorus containers share an `emptyDir` volume mounted at `/tmp`. The shared `/tmp` makes the JVM Attach API's local attach endpoint visible to the sidecar when the JVM and sidecar use separate container filesystems.
 
+For reliable access to the target JVM's `/proc/<pid>` files and JVM Attach API, the application and sidecar should run with the same effective Linux UID. Set `${WORKLOAD_UID}` to the UID used by the application image and apply it to both containers. This is particularly important for applications such as Spring Boot images that run as a non-root user.
+
 Do not replace this with privileged mode or additional Linux capabilities. The sidecar is intentionally using the JVM Attach API plus the shared process namespace for process-level observability.
+
+Some clusters additionally enforce Linux security policies such as SELinux/AppArmor or restrictive `/proc` settings. If `/proc/<pid>/io` remains inaccessible after matching UIDs, A-Haythorus treats process-native metrics as optional and continues collecting JVM/JMX metrics; the target cluster policy must not be weakened globally just to expose those metrics.
+
+## Process-native memory telemetry
+
+A-Haythorus now captures process-level memory indicators separately from JVM `MemoryMXBean` heap/non-heap values:
+
+- resident set size (RSS)
+- anonymous/file/shared resident memory
+- process data segment
+- main-thread stack and aggregate per-thread stack accounting when `/proc` permits it
+- swap
+- JVM direct and mapped buffer-pool usage through JMX
+
+These values are diagnostic process telemetry. They are **not** added to the JVM memory-leak score. Heap retention, old-generation retention, GC reclaim behavior, and histogram growth remain the leak-analysis evidence.
+
+Full native allocation categories such as JNI/native-library allocations and JVM internal native allocations require JVM Native Memory Tracking (NMT) to be enabled at target-JVM startup; they are not inferred from RSS or `VmData`.
 
 ## Networking
 

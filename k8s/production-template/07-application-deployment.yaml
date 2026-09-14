@@ -39,7 +39,10 @@ spec:
               cpu: ${APP_CPU_LIMIT}
               memory: ${APP_MEMORY_LIMIT}
           securityContext:
+            # A-Haythorus must use the same effective UID as the target JVM.
+            # Replace ${WORKLOAD_UID} with the UID used by the application image.
             runAsNonRoot: true
+            runAsUser: ${WORKLOAD_UID}
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -69,7 +72,7 @@ spec:
             - name: AH_UI_DIR
               value: "/app/ui"
             - name: AH_HISTORY_MAX_SAMPLES
-              value: "180"
+              value: "30"
             - name: AH_ANALYSIS_WINDOW_SECONDS
               value: "60"
             - name: AH_LEAK_WINDOW_SECONDS
@@ -109,7 +112,9 @@ spec:
               cpu: ${AH_CPU_LIMIT}
               memory: ${AH_MEMORY_LIMIT}
           securityContext:
+            # Must match the target application's UID for /proc and Attach API access.
             runAsNonRoot: true
+            runAsUser: ${WORKLOAD_UID}
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -117,7 +122,6 @@ spec:
             seccompProfile:
               type: RuntimeDefault
       volumes:
-        # The Attach API uses the target JVM's local /tmp attach endpoint.
-        # Sharing /tmp lets the sidecar discover/attach to the JVM across containers.
+        # Both containers see the JVM's local attach socket/files.
         - name: shared-tmp
           emptyDir: {}

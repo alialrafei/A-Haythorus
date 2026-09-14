@@ -17,6 +17,7 @@ import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.service.delta.DeltaEngine;
 import com.acorp.jvminsight.system.ProcessCpuSnapshot;
 import com.acorp.jvminsight.system.ProcessIoCollector;
+import com.acorp.jvminsight.system.ProcessMemoryCollector;
 import com.acorp.jvminsight.thread.ThreadDumpParser;
 import com.acorp.jvminsight.thread.ThreadDumpService;
 import com.acorp.jvminsight.thread.dto.ThreadDumpSnapshot;
@@ -41,7 +42,7 @@ public class JvmCollector implements Runnable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(JvmCollector.class);
   private static final long SAMPLE_INTERVAL_MS =
-      Math.max(250L, ConfigLoader.getLong("collector.interval.ms", 5000L));
+      Math.max(250L, ConfigLoader.getLong("collector.interval.ms", 10000L));
 
   private final long pid;
   private final MBeanServerConnection mbeanServer;
@@ -57,14 +58,12 @@ public class JvmCollector implements Runnable {
   @Override
   public void run() {
     LOGGER.info("Starting collection loop for pid={} intervalMs={}", pid, SAMPLE_INTERVAL_MS);
-
     try {
       while (!Thread.currentThread().isInterrupted()) {
         if (!isTargetJvmAlive()) {
           LOGGER.info("Target JVM pid={} is no longer alive. Stopping collector.", pid);
           break;
         }
-
         try {
           collectSnapshot();
         } catch (InterruptedException ex) {
@@ -88,7 +87,6 @@ public class JvmCollector implements Runnable {
           }
           LOGGER.error("Unexpected collector error for pid={}. Collector will retry.", pid, ex);
         }
-
         try {
           Thread.sleep(SAMPLE_INTERVAL_MS);
         } catch (InterruptedException ex) {
@@ -106,38 +104,28 @@ public class JvmCollector implements Runnable {
   private void collectSnapshot() throws Exception {
     JvmSnapshot snapshot = new JvmSnapshot();
     snapshot.setPid(pid);
-
     collectThreadDump(snapshot);
-
     ThreadMXBean threadMXBean = createThreadMxBean();
     collectDeadlocks(snapshot, threadMXBean);
     collectThreadCpuTimes(snapshot, threadMXBean);
     snapshot.setThreadCount(threadMXBean.getThreadCount());
-
     collectMemory(snapshot);
     collectMemoryPools(snapshot);
     collectGc(snapshot);
     collectProcessCpu(snapshot);
     collectProcessIo(snapshot);
+    collectProcessMemory(snapshot);
     collectHistogram(snapshot);
-
     snapshot.setTimestamp(Instant.now());
-
     JvmSnapshot previousSnapshot = JvmDataStore.getSnapshot(pid);
     List<JvmHistorySample> retainedHistory = JvmDataStore.getHistory(pid);
-
     JvmDeltaSnapshot delta = DeltaEngine.compute(retainedHistory, previousSnapshot, snapshot);
     snapshot.setDelta(delta);
-
     JvmDataStore.put(pid, snapshot);
     lastStoredSnapshot = snapshot;
-
     LOGGER.debug(
         "Snapshot stored for pid={} historySamples={} leakEvidence={} leakConfidence={}",
-        pid,
-        retainedHistory.size() + 1,
-        delta.getInstantaneousLeakScore(),
-        delta.getLeakScore());
+        pid, retainedHistory.size() + 1, delta.getInstantaneousLeakScore(), delta.getLeakScore());
   }
 
   private void collectThreadDump(JvmSnapshot snapshot) {
@@ -154,7 +142,6 @@ public class JvmCollector implements Runnable {
     ThreadMXBean threadMXBean =
         ManagementFactory.newPlatformMXBeanProxy(
             mbeanServer, ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class);
-
     if (threadMXBean.isThreadCpuTimeSupported() && !threadMXBean.isThreadCpuTimeEnabled()) {
       threadMXBean.setThreadCpuTimeEnabled(true);
     }
@@ -165,11 +152,7 @@ public class JvmCollector implements Runnable {
     try {
       long[] deadlocks = ThreadDumpService.findDeadlockedThreads(mbeanServer);
       snapshot.setDeadlocks(deadlocks);
-
-      if (deadlocks == null || deadlocks.length == 0) {
-        return;
-      }
-
+      if (deadlocks == null || deadlocks.length == 0) return;
       LOGGER.warn("Detected {} deadlocked thread(s) in pid={}", deadlocks.length, pid);
       ThreadInfo[] infos = threadMXBean.getThreadInfo(deadlocks, true, true);
       snapshot.setThreadsInfos(infos);
@@ -180,17 +163,13 @@ public class JvmCollector implements Runnable {
 
   private void collectThreadCpuTimes(JvmSnapshot snapshot, ThreadMXBean threadMXBean) {
     Map<Long, Long> cpuTimes = new HashMap<>();
-
     if (!threadMXBean.isThreadCpuTimeSupported()) {
       snapshot.setThreadCpuTimes(cpuTimes);
       return;
     }
-
     for (long id : threadMXBean.getAllThreadIds()) {
       long cpuTime = threadMXBean.getThreadCpuTime(id);
-      if (cpuTime >= 0) {
-        cpuTimes.put(id, cpuTime);
-      }
+      if (cpuTime >= 0) cpuTimes.put(id, cpuTime);
     }
     snapshot.setThreadCpuTimes(cpuTimes);
   }
@@ -220,7 +199,6 @@ public class JvmCollector implements Runnable {
               mbeanServer,
               ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME,
               com.sun.management.OperatingSystemMXBean.class);
-
       snapshot.setProcessCpu(
           new ProcessCpuSnapshot(
               osBean.getProcessCpuTime(),
@@ -240,15 +218,22 @@ public class JvmCollector implements Runnable {
     }
   }
 
+  private void collectProcessMemory(JvmSnapshot snapshot) {
+    try {
+      snapshot.setProcessMemory(ProcessMemoryCollector.collect(pid, mbeanServer));
+    } catch (SecurityException ex) {
+      LOGGER.warn(
+          "Failed collecting native process memory for pid={}; JVM metrics remain available.", pid, ex);
+    }
+  }
+
   private void collectHistogram(JvmSnapshot snapshot)
       throws MalformedObjectNameException,
           InstanceNotFoundException,
           MBeanException,
           ReflectionException,
           IOException {
-
     ObjectName diagnosticCommand = new ObjectName("com.sun.management:type=DiagnosticCommand");
-
     String histogram =
         (String)
             mbeanServer.invoke(
@@ -256,11 +241,9 @@ public class JvmCollector implements Runnable {
                 "gcClassHistogram",
                 new Object[] {new String[] {"-all"}},
                 new String[] {"[Ljava.lang.String;"});
-
     List<ClassHistogramEntry> classes = HistogramParser.parse(histogram);
     classes = HistogramParser.sortByBytesDesc(classes).stream().toList();
     snapshot.setHistogram(classes);
-
     LOGGER.debug("Collected histogram with {} classes for pid={}", classes.size(), pid);
   }
 
@@ -269,17 +252,12 @@ public class JvmCollector implements Runnable {
   }
 
   private void cleanupSnapshot() {
-    if (lastStoredSnapshot == null) {
-      return;
-    }
-
+    if (lastStoredSnapshot == null) return;
     boolean removed = JvmDataStore.remove(pid, lastStoredSnapshot);
     if (removed) {
       LOGGER.info("Removed stale snapshot and history for terminated JVM pid={}", pid);
     } else {
-      LOGGER.debug(
-          "Snapshot for pid={} was not removed because the datastore now contains a different snapshot.",
-          pid);
+      LOGGER.debug("Snapshot for pid={} was not removed because the datastore now contains a different snapshot.", pid);
     }
   }
 
