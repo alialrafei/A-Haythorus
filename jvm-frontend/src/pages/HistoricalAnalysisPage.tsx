@@ -17,6 +17,8 @@ import type {
   JvmSnapshot,
 } from '../models/snapshot';
 import { MetricCard } from '../components/common/MetricCard';
+import { AnalysisMethodologyPanel } from '../components/analysis/AnalysisMethodologyPanel';
+import '../components/analysis/analysisMethodology.css';
 import {
   formatBytes,
   formatPercent,
@@ -70,6 +72,8 @@ export function HistoricalAnalysisPage() {
 
   return (
     <div className="page-stack">
+      <AnalysisMethodologyPanel />
+
       {error ? <div className="stale-banner">{error}</div> : null}
 
       {histories.map((history) => {
