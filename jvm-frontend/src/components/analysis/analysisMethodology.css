@@ -1,0 +1,162 @@
+.analysis-methodology-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.analysis-methodology-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.analysis-methodology-title > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.analysis-methodology-body {
+  margin-top: 20px;
+  display: grid;
+  gap: 20px;
+}
+
+.analysis-methodology-intro {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+}
+
+.analysis-methodology-intro p,
+.analysis-methodology-card p,
+.analysis-example p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.analysis-methodology-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.analysis-methodology-card {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.analysis-methodology-card h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.analysis-methodology-card ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.analysis-formula {
+  display: block;
+  margin-top: 10px;
+  padding: 9px 10px;
+  overflow-x: auto;
+  border-radius: 7px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.analysis-examples {
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-example-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analysis-example-tabs button {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.analysis-example-tabs button.analysis-example-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.analysis-example-table {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.analysis-example-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 130px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.analysis-example-header {
+  border-top: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.analysis-example-row > span:nth-child(2) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analysis-bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: .7;
+}
+
+@media (max-width: 700px) {
+  .analysis-example-row {
+    grid-template-columns: 65px 1fr;
+  }
+
+  .analysis-example-row > span:last-child {
+    grid-column: 2;
+  }
+}
