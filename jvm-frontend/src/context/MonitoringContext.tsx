@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { sidecarApi } from '../api/sidecarApi';
-import type { AggregatorSnapshot, JvmHistoryPoint, JvmSnapshot, PodInfo, ShardingCapabilities } from '../models/snapshot';
+import type { AggregatorSnapshot, JvmHistoryPoint, JvmHistorySample, JvmSnapshot, PodInfo, ShardingCapabilities } from '../models/snapshot';
 import { buildJvmKey } from '../utils/health';
 import { toEpochMillis } from '../utils/format';
 
@@ -51,6 +51,54 @@ function createHistoryPoint(snapshot: JvmSnapshot): JvmHistoryPoint {
   };
 }
 
+function createHistoryPoints(samples: JvmHistorySample[]): JvmHistoryPoint[] {
+  return samples.map((sample, index) => {
+    const previous = index > 0 ? samples[index - 1] : null;
+    const timestamp = toEpochMillis(sample.timestamp);
+    const previousTimestamp = previous ? toEpochMillis(previous.timestamp) : timestamp;
+    const elapsedMillis = timestamp - previousTimestamp;
+    const elapsedNanos = elapsedMillis * 1_000_000;
+    const processors = Math.max(1, sample.process.availableProcessors || 1);
+
+    const cpuDelta = previous
+      ? Math.max(0, sample.process.cpuTimeNanos - previous.process.cpuTimeNanos)
+      : 0;
+    const cpuUtilization = elapsedNanos > 0
+      ? (cpuDelta / (elapsedNanos * processors)) * 100
+      : 0;
+
+    const readDelta = previous
+      ? Math.max(0, sample.process.readBytes - previous.process.readBytes)
+      : 0;
+    const writeDelta = previous
+      ? Math.max(0, sample.process.writeBytes - previous.process.writeBytes)
+      : 0;
+    const seconds = elapsedMillis / 1_000;
+
+    const processMemory = sample.processMemory;
+    return {
+      timestamp,
+      heapUsed: sample.heapUsed,
+      heapCommitted: 0,
+      heapMax: 0,
+      nonHeapUsed: sample.nonHeapUsed,
+      threadCount: sample.threadCount,
+      leakScore: sample.leakConfidence,
+      processCpuUtilizationPercentage: cpuUtilization,
+      processCpuLoad: 0,
+      systemCpuLoad: 0,
+      readBytesPerSecond: seconds > 0 ? readDelta / seconds : 0,
+      writeBytesPerSecond: seconds > 0 ? writeDelta / seconds : 0,
+      processResidentBytes: processMemory?.residentBytes ?? 0,
+      processAnonymousResidentBytes: processMemory?.anonymousResidentBytes ?? 0,
+      processFileResidentBytes: processMemory?.fileResidentBytes ?? 0,
+      processAllThreadStacksBytes: processMemory?.allThreadStacksBytes ?? 0,
+      processDirectBufferBytes: processMemory?.directBufferBytes ?? 0,
+      processMappedBufferBytes: processMemory?.mappedBufferBytes ?? 0,
+    };
+  });
+}
+
 export function MonitoringProvider({ children }: { children: React.ReactNode }) {
   const [snapshots, setSnapshots] = useState<AggregatorSnapshot[]>([]);
   const [historyByJvm, setHistoryByJvm] = useState<Record<string, JvmHistoryPoint[]>>({});
@@ -78,10 +126,21 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
     });
   }, []);
 
+  const hydrateHistory = useCallback(async (shard: number | null) => {
+    const responses = await sidecarApi.getHistories(shard);
+    const hydrated: Record<string, JvmHistoryPoint[]> = {};
+    responses.forEach((response) => {
+      const key = buildJvmKey(response.pod.namespace, response.pod.name, response.pid);
+      hydrated[key] = createHistoryPoints(response.history).slice(-MAX_HISTORY_POINTS);
+    });
+    setHistoryByJvm(hydrated);
+  }, []);
+
   const setSelectedShard = useCallback((shard: number) => {
     if (!sharding.enabled || shard < 0 || shard >= sharding.shardCount) return;
     setSelectedShardState(shard);
     setSnapshots([]);
+    setHistoryByJvm({});
     setLoading(true);
   }, [sharding]);
 
@@ -129,10 +188,27 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!capabilitiesLoaded) return undefined;
-    void refresh();
+    let cancelled = false;
+    const initialize = async () => {
+      const shard = sharding.enabled ? selectedShard : null;
+      try {
+        await hydrateHistory(shard);
+        if (cancelled) return;
+        await refresh();
+      } catch (cause) {
+        if (cancelled) return;
+        setError(cause instanceof Error ? cause.message : 'Unable to load monitoring history.');
+        setLoading(false);
+      }
+    };
+    void initialize();
+
     const timer = window.setInterval(() => void refresh(), POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [capabilitiesLoaded, refresh]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [capabilitiesLoaded, selectedShard, sharding.enabled, hydrateHistory, refresh]);
 
   const jvms = useMemo<JvmNode[]>(() => snapshots.flatMap((podSnapshot) =>
     (podSnapshot.jvmSnapshots ?? []).map((snapshot) => ({
