@@ -10,6 +10,7 @@ public final class RouteConstants {
   public static final String HISTORY = "/api/v1/history";
   public static final String CLUSTER = "/api/v1/cluster";
   public static final String JVMS = "/api/v1/jvms";
+  public static final String ANALYSIS_METHODOLOGY = "/api/v1/analysis/methodology";
 
   public static final String MEMORY = "memory";
   public static final String MEMORY_POOLS = "memory-pools";
