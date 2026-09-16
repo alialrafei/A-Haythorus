@@ -4,6 +4,7 @@ export const API = {
   history: '/api/v1/history',
   cluster: '/api/v1/cluster',
   jvms: '/api/v1/jvms',
+  analysisMethodology: '/api/v1/analysis/methodology',
 
   jvm: (pid: number) => `/api/v1/jvms/${pid}`,
   memory: (pid: number) => `/api/v1/jvms/${pid}/memory`,

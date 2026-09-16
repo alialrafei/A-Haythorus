@@ -15,6 +15,7 @@ import type {
   ThreadDumpSnapshot,
   TimestampResponse,
 } from '../models/snapshot';
+import type { AnalysisMethodology } from '../models/analysisMethodology';
 
 type SnapshotEnvelope =
   | AggregatorSnapshot
@@ -47,6 +48,10 @@ function withShard(path: string, shard: number | null | undefined): string {
 export const sidecarApi = {
   getRoot(signal?: AbortSignal) {
     return getJson<RootMetadata>(API.root, signal);
+  },
+
+  getAnalysisMethodology(signal?: AbortSignal) {
+    return getJson<AnalysisMethodology>(API.analysisMethodology, signal);
   },
 
   async getSnapshots(
