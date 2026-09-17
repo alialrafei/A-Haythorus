@@ -37,6 +37,12 @@
   border: 1px solid var(--border);
 }
 
+.analysis-methodology-intro strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
 .analysis-methodology-intro p,
 .analysis-methodology-card p,
 .analysis-example p {
@@ -44,6 +50,168 @@
   color: var(--text-secondary);
   line-height: 1.55;
   font-size: 13px;
+}
+
+.analysis-actionable {
+  display: grid;
+  gap: 14px;
+}
+
+.analysis-action-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.analysis-action-header h3 {
+  margin: 3px 0 0;
+  font-size: 18px;
+}
+
+.analysis-window-badge {
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.analysis-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analysis-risk-card {
+  position: relative;
+  min-height: 190px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.analysis-risk-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--border-strong);
+}
+
+.analysis-risk-good::before {
+  background: var(--good, #2f9e44);
+}
+
+.analysis-risk-warning::before {
+  background: var(--warning, #f59f00);
+}
+
+.analysis-risk-danger::before {
+  background: var(--danger, #e03131);
+}
+
+.analysis-risk-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.analysis-risk-top > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analysis-risk-top > strong {
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.analysis-risk-top small {
+  margin-left: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.analysis-risk-card > b {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: .06em;
+}
+
+.analysis-risk-good > b {
+  color: var(--good, #2f9e44);
+}
+
+.analysis-risk-warning > b {
+  color: var(--warning, #f59f00);
+}
+
+.analysis-risk-danger > b {
+  color: var(--danger, #e03131);
+}
+
+.analysis-risk-card p {
+  margin: 9px 0 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.analysis-next-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.analysis-action-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.analysis-action-rule strong {
+  color: var(--text-primary);
+}
+
+.analysis-action-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  color: var(--text-secondary);
+}
+
+.analysis-action-empty div {
+  display: grid;
+  gap: 2px;
+}
+
+.analysis-action-empty span {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .analysis-methodology-grid {
@@ -149,6 +317,17 @@
   border-radius: 999px;
   background: var(--accent);
   opacity: .7;
+}
+
+@media (max-width: 900px) {
+  .analysis-risk-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-action-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 700px) {
