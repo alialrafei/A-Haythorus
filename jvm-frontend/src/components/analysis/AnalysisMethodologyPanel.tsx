@@ -10,8 +10,12 @@ import type {
 } from '../../models/snapshot';
 import type { AnalysisMethodology, MethodologyExample } from '../../models/analysisMethodology';
 
-type AnalysisContext = {
-  analysis: JvmDeltaSnapshot | null;
+type PodAnalysisContext = {
+  key: string;
+  namespace: string;
+  podName: string;
+  pid: number;
+  analysis: JvmDeltaSnapshot;
   sampleCount: number;
   windowSeconds: number;
 };
@@ -19,7 +23,7 @@ type AnalysisContext = {
 export function AnalysisMethodologyPanel() {
   const { sharding, selectedShard } = useMonitoring();
   const [methodology, setMethodology] = useState<AnalysisMethodology | null>(null);
-  const [context, setContext] = useState<AnalysisContext | null>(null);
+  const [contexts, setContexts] = useState<PodAnalysisContext[]>([]);
   const [open, setOpen] = useState(true);
   const [exampleId, setExampleId] = useState('healthy-gc');
   const [loading, setLoading] = useState(false);
@@ -40,7 +44,7 @@ export function AnalysisMethodologyPanel() {
 
         if (!cancelled) {
           setMethodology(methodologyData);
-          setContext(buildAnalysisContext(snapshots, histories));
+          setContexts(buildAnalysisContexts(snapshots, histories));
           setError(null);
         }
       } catch (cause) {
@@ -75,7 +79,12 @@ export function AnalysisMethodologyPanel() {
         <div className="analysis-methodology-body">
           {loading && !methodology ? <div className="inline-empty"><Spinner size={18} /> Building analysis evidence…</div>
             : error && !methodology ? <div className="inline-empty">{error}</div>
-            : methodology ? <><EvidenceSummary context={context} /><div className="analysis-methodology-intro"><strong>The score is evidence, not a magic number</strong><p>A-Haythorus samples runtime behavior over a rolling analysis window, measures how the behavior changes between samples, and combines independent signals into an explainable score. The score is a 0–100 strength-of-evidence scale; it is not a probability.</p></div><div className="analysis-methodology-grid">{methodology.sections.map((section) => <article key={section.id} className="analysis-methodology-card"><h4>{section.title}</h4><p>{section.description}</p>{section.formula ? <code className="analysis-formula">{section.formula}</code> : null}{section.signals?.length ? <ul>{section.signals.map((signal) => <li key={signal.id}><strong>{signal.name}:</strong> {signal.description}</li>)}</ul> : null}{section.scoreFlow?.length ? <ul>{section.scoreFlow.map((item) => <li key={item}>{item}</li>)}</ul> : null}</article>)}</div><div className="analysis-examples"><div className="panel-heading"><div><span className="eyebrow">Model behavior</span><h3>What different sampling patterns mean</h3></div></div><div className="analysis-example-tabs">{methodology.examples.map((example) => <button type="button" key={example.id} className={example.id === selectedExample?.id ? 'analysis-example-active' : ''} onClick={() => setExampleId(example.id)}>{example.title}</button>)}</div>{selectedExample ? <ExampleView example={selectedExample} /> : null}</div></>
+            : methodology ? <>
+              <EvidenceSummary contexts={contexts} />
+              <div className="analysis-methodology-intro"><strong>The score is evidence, not a magic number</strong><p>A-Haythorus samples runtime behavior over a rolling analysis window, measures how the behavior changes between samples, and combines independent signals into an explainable score. The score is a 0–100 strength-of-evidence scale; it is not a probability.</p></div>
+              <div className="analysis-methodology-grid">{methodology.sections.map((section) => <article key={section.id} className="analysis-methodology-card"><h4>{section.title}</h4><p>{section.description}</p>{section.formula ? <code className="analysis-formula">{section.formula}</code> : null}{section.signals?.length ? <ul>{section.signals.map((signal) => <li key={signal.id}><strong>{signal.name}:</strong> {signal.description}</li>)}</ul> : null}{section.scoreFlow?.length ? <ul>{section.scoreFlow.map((item) => <li key={item}>{item}</li>)}</ul> : null}</article>)}</div>
+              <div className="analysis-examples"><div className="panel-heading"><div><span className="eyebrow">Model behavior</span><h3>What different sampling patterns mean</h3></div></div><div className="analysis-example-tabs">{methodology.examples.map((example) => <button type="button" key={example.id} className={example.id === selectedExample?.id ? 'analysis-example-active' : ''} onClick={() => setExampleId(example.id)}>{example.title}</button>)}</div>{selectedExample ? <ExampleView example={selectedExample} /> : null}</div>
+            </>
             : null}
         </div>
       ) : null}
@@ -83,13 +92,40 @@ export function AnalysisMethodologyPanel() {
   );
 }
 
-function EvidenceSummary({ context }: { context: AnalysisContext | null }) {
-  if (!context?.analysis) return <div className="analysis-action-empty"><Icon icon="time" size={18} /><div><strong>Building the evidence window</strong><span>More runtime samples are required before the analysis can explain a score.</span></div></div>;
+function EvidenceSummary({ contexts }: { contexts: PodAnalysisContext[] }) {
+  if (contexts.length === 0) {
+    return <div className="analysis-action-empty"><Icon icon="time" size={18} /><div><strong>Building the evidence window</strong><span>More runtime samples are required before the analysis can explain a score.</span></div></div>;
+  }
+
+  return <div className="analysis-actionable">
+    <div className="analysis-action-header">
+      <div><span className="eyebrow">Current evidence</span><h3>What each pod analyzer sees</h3></div>
+      <span className="analysis-window-badge">{contexts.length} pods · selected shard only</span>
+    </div>
+    <div className="analysis-pod-evidence-list">
+      {contexts.map((context) => <PodEvidence context={context} key={context.key} />)}
+    </div>
+    <div className="analysis-action-rule"><Icon icon="calculator" size={15} /><strong>Why this is trustworthy:</strong><span>each result is produced from that pod's sampled history, explicit signal formulas, and the evidence shown below—not from a combined cross-pod history.</span></div>
+  </div>;
+}
+
+function PodEvidence({ context }: { context: PodAnalysisContext }) {
   const analysis = context.analysis;
   const leakState = riskLevel(analysis.leakScore);
   const cpuState = riskLevel(analysis.cpuAnalysis?.score ?? 0);
   const ioState = ioRiskLevel(analysis.ioAnalysis);
-  return <div className="analysis-actionable"><div className="analysis-action-header"><div><span className="eyebrow">Current evidence</span><h3>What the analyzer sees</h3></div><span className="analysis-window-badge">{context.sampleCount} samples · {context.windowSeconds.toFixed(1)}s window · {analysis.windowGcCollections} GC events</span></div><div className="analysis-risk-grid"><EvidenceCard label="Memory retention" score={analysis.leakScore} state={leakState} statement={leakStatement(analysis)} evidence={analysis.leakReasons?.slice(0, 4) ?? []} action="Inspect Memory and Objects when this signal is elevated." /><EvidenceCard label="CPU pressure" score={analysis.cpuAnalysis?.score ?? 0} state={cpuState} statement={cpuStatement(analysis.cpuAnalysis)} evidence={analysis.cpuAnalysis?.evidence.filter((item) => item.available).slice(0, 3).map((item) => `${item.name}: ${formatEvidence(item.value)}`) ?? []} action="Inspect Threads and top CPU consumers when pressure persists." /><EvidenceCard label="I/O behavior" score={analysis.ioAnalysis?.score ?? 0} state={ioState} statement={ioStatement(analysis.ioAnalysis)} evidence={analysis.ioAnalysis?.evidence.filter((item) => item.available).slice(0, 3).map((item) => `${item.name}: ${formatEvidence(item.value)}`) ?? []} action="Inspect I/O persistence and process throughput before investigating storage." /></div><div className="analysis-action-rule"><Icon icon="calculator" size={15} /><strong>Why this is trustworthy:</strong><span>the result is produced from sampled history, explicit signal formulas, and the evidence shown below—not from a single instantaneous metric.</span></div></div>;
+
+  return <section className="analysis-pod-evidence">
+    <div className="analysis-action-header">
+      <div><span className="eyebrow">{context.namespace}</span><h3>{context.podName}</h3></div>
+      <span className="analysis-window-badge">PID {context.pid} · {context.sampleCount} samples · {context.windowSeconds.toFixed(1)}s window · {analysis.windowGcCollections} GC events</span>
+    </div>
+    <div className="analysis-risk-grid">
+      <EvidenceCard label="Memory retention" score={analysis.leakScore} state={leakState} statement={leakStatement(analysis)} evidence={analysis.leakReasons?.slice(0, 4) ?? []} action="Inspect Memory and Objects when this signal is elevated." />
+      <EvidenceCard label="CPU pressure" score={analysis.cpuAnalysis?.score ?? 0} state={cpuState} statement={cpuStatement(analysis.cpuAnalysis)} evidence={analysis.cpuAnalysis?.evidence.filter((item) => item.available).slice(0, 3).map((item) => `${item.name}: ${formatEvidence(item.value)}`) ?? []} action="Inspect Threads and top CPU consumers when pressure persists." />
+      <EvidenceCard label="I/O behavior" score={analysis.ioAnalysis?.score ?? 0} state={ioState} statement={ioStatement(analysis.ioAnalysis)} evidence={analysis.ioAnalysis?.evidence.filter((item) => item.available).slice(0, 3).map((item) => `${item.name}: ${formatEvidence(item.value)}`) ?? []} action="Inspect I/O persistence and process throughput before investigating storage." />
+    </div>
+  </section>;
 }
 
 function EvidenceCard({ label, score, state, statement, evidence, action }: { label: string; score: number; state: 'good' | 'warning' | 'danger'; statement: string; evidence: string[]; action: string }) {
@@ -104,15 +140,36 @@ function cpuStatement(result: AnalysisResult | null): string { if (!result) retu
 function ioStatement(result: AnalysisResult | null): string { if (!result) return 'I/O history is not available yet.'; const persistence = result.metrics.persistencePercent ?? 0; if (result.score >= 80 && persistence >= 75) return 'High I/O activity is persistent across the observed window, making it worth investigating for latency, contention, or inefficient access.'; if (result.score >= 60 || persistence >= 60) return 'I/O activity is elevated or persistent; use the supporting throughput and persistence signals to investigate.'; return 'Recent samples do not indicate elevated sustained I/O behavior.'; }
 function formatEvidence(value: number): string { return `${Math.round(value * 100)}%`; }
 
-function buildAnalysisContext(snapshots: AggregatorSnapshot[], histories: JvmHistoryResponse[]): AnalysisContext {
-  const candidates = snapshots.flatMap((snapshot) => snapshot.jvmSnapshots.filter((jvm) => jvm.delta).map((jvm) => ({ timestamp: toMillis(jvm.timestamp), delta: jvm.delta as JvmDeltaSnapshot, pid: jvm.pid, namespace: snapshot.pod.namespace, podName: snapshot.pod.name })));
-  candidates.sort((left, right) => right.timestamp - left.timestamp);
-  const latest = candidates[0] ?? null;
-  if (!latest) return { analysis: null, sampleCount: 0, windowSeconds: 0 };
-  const matchingHistory = histories.find((history) => history.pid === latest.pid && history.pod.namespace === latest.namespace && history.pod.name === latest.podName);
-  const samples = matchingHistory?.history?.length ?? 0;
-  const windowSeconds = matchingHistory?.history && matchingHistory.history.length > 1 ? Math.max(0, (toMillis(matchingHistory.history.at(-1)!.timestamp) - toMillis(matchingHistory.history[0].timestamp)) / 1000) : 0;
-  return { analysis: latest.delta, sampleCount: samples, windowSeconds };
+function buildAnalysisContexts(snapshots: AggregatorSnapshot[], histories: JvmHistoryResponse[]): PodAnalysisContext[] {
+  const contexts: PodAnalysisContext[] = [];
+
+  histories.forEach((history) => {
+    const podSnapshot = snapshots.find((snapshot) =>
+      snapshot.pod.namespace === history.pod.namespace && snapshot.pod.name === history.pod.name);
+    const latestJvm = podSnapshot?.jvmSnapshots
+      ?.filter((jvm) => jvm.delta)
+      .find((jvm) => jvm.pid === history.pid);
+
+    if (!latestJvm?.delta) return;
+
+    const samples = history.history ?? [];
+    const windowSeconds = samples.length > 1
+      ? Math.max(0, (toMillis(samples[samples.length - 1].timestamp) - toMillis(samples[0].timestamp)) / 1000)
+      : 0;
+
+    contexts.push({
+      key: `${history.pod.namespace}/${history.pod.name}:${history.pid}`,
+      namespace: history.pod.namespace,
+      podName: history.pod.name,
+      pid: history.pid,
+      analysis: latestJvm.delta,
+      sampleCount: samples.length,
+      windowSeconds,
+    });
+  });
+
+  return contexts;
 }
+
 function toMillis(value: string | number): number { if (typeof value === 'number') return value > 10_000_000_000 ? value : value * 1000; const parsed = Date.parse(value); return Number.isFinite(parsed) ? parsed : 0; }
 function ExampleView({ example }: { example: MethodologyExample }) { const maxHeap = Math.max(...example.samples.map((sample) => sample.heapUsedMb)); return <div className="analysis-example"><p>{example.description}</p><div className="analysis-example-table"><div className="analysis-example-row analysis-example-header"><span>Time</span><span>Heap used</span><span>GC reclaimed</span></div>{example.samples.map((sample) => <div className="analysis-example-row" key={sample.time}><span>{sample.time}</span><span><strong>{sample.heapUsedMb} MB</strong><span className="analysis-bar" style={{ width: `${Math.max(8, (sample.heapUsedMb / maxHeap) * 100)}%` }} /></span><span>{sample.gcReclaimedMb} MB</span></div>)}</div></div>; }
