@@ -114,7 +114,14 @@ export function AppShell() {
         onOpenJvm={openJvm}
       />
 
-      <div className="app-main">
+      <div
+        className="app-main"
+        style={{
+          minHeight: 0,
+          minWidth: 0,
+          overflow: 'hidden',
+        }}
+      >
         <TopBar
           title={heading.title}
           subtitle={heading.subtitle}
@@ -138,9 +145,11 @@ export function AppShell() {
           className="page"
           style={{
             minHeight: 0,
+            height: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
             overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           {monitoring.error &&
