@@ -98,13 +98,13 @@ spec:
               value: a-haythorus.io/enabled=true
 
             - name: AH_COLLECTOR_INTERVAL_MS
-              value: "10000"
+              value: "1000"
 
             - name: AH_HISTORY_MAX_SAMPLES
               value: "120"
 
             - name: AH_ANALYSIS_WINDOW_SECONDS
-              value: "10"
+              value: "60"
 
             - name: AH_LEAK_WINDOW_SECONDS
               value: "300"
@@ -211,6 +211,7 @@ metadata:
   namespace: ahaythorus-test
 spec:
   ingressClassName: nginx
+
   rules:
     - host: ahaythorus.local
       http:
