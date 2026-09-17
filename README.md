@@ -15,6 +15,20 @@ The long-term architecture deliberately separates generic process analysis from 
 
 ![Dashboard Overview](jvm-frontend/docs/assets/light_mode_dashboard.png)
 
+## Architecture at a glance
+
+The architecture diagram below shows the main A-Haythorus deployment model: one sidecar attached to the target JVM, Linux process telemetry through `/proc`, Kubernetes API-based peer discovery, and bounded peer HTTP aggregation without a central push collector.
+
+### Static architecture
+
+![A-Haythorus Infrastructure Architecture](docs/assets/architecture.svg)
+
+### Animated architecture walkthrough
+
+![A-Haythorus Animated Architecture Walkthrough](docs/assets/architecture-animated.svg)
+
+The animated version highlights the main telemetry and peer-discovery flows.
+
 ---
 
 ## 1. Design goals
