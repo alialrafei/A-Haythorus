@@ -105,6 +105,11 @@ function PodHistorySection({
 }) {
   const samples = history.history ?? [];
   const summary = useMemo(() => summarize(samples), [samples]);
+  const latestDelta = latestJvm?.delta;
+  const cpu = latestDelta?.cpuDelta;
+  const io = latestDelta?.ioDelta;
+  const cpuAnalysis = latestDelta?.cpuAnalysis;
+  const ioAnalysis = latestDelta?.ioAnalysis;
 
   return (
     <section className="content-section">
@@ -160,6 +165,39 @@ function PodHistorySection({
           hint="Latest old-generation usage minus the oldest retained-history value shown on this page. This card describes the retained chart history, not necessarily the shorter leak-analysis window."
           icon="refresh"
         />
+        <MetricCard
+          label="CPU utilization"
+          value={formatPercent(
+            cpu?.processCpuUtilizationPercentage ?? 0,
+          )}
+          detail={`${cpu?.availableProcessors ?? 0} processors visible`}
+          hint="Latest pairwise process CPU utilization normalized by the processors visible to the monitored JVM."
+          icon="dashboard"
+          accent="accent"
+        />
+        <MetricCard
+          label="CPU pressure"
+          value={formatScore(cpuAnalysis?.score ?? 0)}
+          detail={cpuAnalysis?.scoreLabel ?? 'Historical analysis unavailable'}
+          hint="Historical sustained CPU pressure from the backend analysis. A zero here means the historical CPU analysis is unavailable, not that the process used zero CPU."
+          icon="pulse"
+        />
+        <MetricCard
+          label="I/O activity"
+          value={formatScore(ioAnalysis?.score ?? 0)}
+          detail={ioAnalysis?.scoreLabel ?? 'Historical analysis unavailable'}
+          hint="Historical process I/O activity derived from storage throughput and read/write syscall behavior."
+          icon="exchange"
+        />
+        <MetricCard
+          label="I/O throughput"
+          value={`${formatBytes(
+            (io?.readBytesPerSecond ?? 0) + (io?.writeBytesPerSecond ?? 0),
+          )}/s`}
+          detail={`read ${formatBytes(io?.readBytesPerSecond ?? 0)}/s · write ${formatBytes(io?.writeBytesPerSecond ?? 0)}/s`}
+          hint="Latest pairwise process storage throughput returned by the backend."
+          icon="download"
+        />
       </section>
 
       <section className="split-grid">
@@ -177,7 +215,7 @@ function PodHistorySection({
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">Latest delta · 2 samples</span>
+              <span className="eyebrow">Latest delta</span>
               <h3>Most recent interval</h3>
             </div>
           </div>
