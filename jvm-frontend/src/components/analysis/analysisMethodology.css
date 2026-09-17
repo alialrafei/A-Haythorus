@@ -1,341 +1,55 @@
 .analysis-methodology-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary);
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border: 0; background: transparent; color: var(--text-primary); padding: 0; cursor: pointer; text-align: left;
 }
+.analysis-methodology-title { display: flex; align-items: center; gap: 12px; }
+.analysis-methodology-title > span { display: flex; flex-direction: column; gap: 3px; }
+.analysis-methodology-body { margin-top: 20px; display: grid; gap: 20px; }
+.analysis-methodology-intro { padding: 14px 16px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--border); }
+.analysis-methodology-intro strong { display: block; margin-bottom: 5px; font-size: 13px; }
+.analysis-methodology-intro p, .analysis-methodology-card p, .analysis-example p { margin: 0; color: var(--text-secondary); line-height: 1.55; font-size: 13px; }
 
-.analysis-methodology-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.analysis-actionable { display: grid; gap: 14px; }
+.analysis-action-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.analysis-action-header h3 { margin: 3px 0 0; font-size: 18px; }
+.analysis-window-badge { padding: 6px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.analysis-risk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.analysis-risk-card { position: relative; min-height: 235px; padding: 16px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-soft); overflow: hidden; }
+.analysis-risk-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--border-strong); }
+.analysis-risk-good::before { background: var(--good, #2f9e44); }
+.analysis-risk-warning::before { background: var(--warning, #f59f00); }
+.analysis-risk-danger::before { background: var(--danger, #e03131); }
+.analysis-risk-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.analysis-risk-top > span { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.analysis-risk-top > strong { color: var(--text-primary); font-size: 29px; line-height: 1; }
+.analysis-risk-top small { margin-left: 2px; color: var(--text-muted); font-size: 10px; font-weight: 500; }
+.analysis-risk-card > b { display: inline-block; margin-top: 10px; font-size: 10px; letter-spacing: .06em; }
+.analysis-risk-good > b { color: var(--good, #2f9e44); }
+.analysis-risk-warning > b { color: var(--warning, #f59f00); }
+.analysis-risk-danger > b { color: var(--danger, #e03131); }
+.analysis-risk-card p { margin: 9px 0 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.analysis-evidence-points { margin: 0 0 12px; padding-left: 17px; color: var(--text-primary); font-size: 11px; line-height: 1.5; }
+.analysis-evidence-points li { margin-bottom: 3px; }
+.analysis-next-action { display: flex; align-items: flex-start; gap: 7px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text-primary); font-size: 11px; line-height: 1.45; }
+.analysis-action-rule { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 9px; background: var(--surface-soft); border: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+.analysis-action-rule strong { color: var(--text-primary); }
+.analysis-action-empty { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border: 1px dashed var(--border-strong); border-radius: 10px; color: var(--text-secondary); }
+.analysis-action-empty div { display: grid; gap: 2px; }
+.analysis-action-empty span { color: var(--text-muted); font-size: 12px; }
 
-.analysis-methodology-title > span {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.analysis-methodology-body {
-  margin-top: 20px;
-  display: grid;
-  gap: 20px;
-}
-
-.analysis-methodology-intro {
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  border: 1px solid var(--border);
-}
-
-.analysis-methodology-intro strong {
-  display: block;
-  margin-bottom: 5px;
-  font-size: 13px;
-}
-
-.analysis-methodology-intro p,
-.analysis-methodology-card p,
-.analysis-example p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  font-size: 13px;
-}
-
-.analysis-actionable {
-  display: grid;
-  gap: 14px;
-}
-
-.analysis-action-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.analysis-action-header h3 {
-  margin: 3px 0 0;
-  font-size: 18px;
-}
-
-.analysis-window-badge {
-  padding: 6px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.analysis-risk-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.analysis-risk-card {
-  position: relative;
-  min-height: 190px;
-  padding: 15px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface-soft);
-  overflow: hidden;
-}
-
-.analysis-risk-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--border-strong);
-}
-
-.analysis-risk-good::before {
-  background: var(--good, #2f9e44);
-}
-
-.analysis-risk-warning::before {
-  background: var(--warning, #f59f00);
-}
-
-.analysis-risk-danger::before {
-  background: var(--danger, #e03131);
-}
-
-.analysis-risk-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.analysis-risk-top > span {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.analysis-risk-top > strong {
-  color: var(--text-primary);
-  font-size: 28px;
-  line-height: 1;
-}
-
-.analysis-risk-top small {
-  margin-left: 2px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.analysis-risk-card > b {
-  display: inline-block;
-  margin-top: 10px;
-  font-size: 10px;
-  letter-spacing: .06em;
-}
-
-.analysis-risk-good > b {
-  color: var(--good, #2f9e44);
-}
-
-.analysis-risk-warning > b {
-  color: var(--warning, #f59f00);
-}
-
-.analysis-risk-danger > b {
-  color: var(--danger, #e03131);
-}
-
-.analysis-risk-card p {
-  margin: 9px 0 12px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.analysis-next-action {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  color: var(--text-primary);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.analysis-action-rule {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.analysis-action-rule strong {
-  color: var(--text-primary);
-}
-
-.analysis-action-empty {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 10px;
-  color: var(--text-secondary);
-}
-
-.analysis-action-empty div {
-  display: grid;
-  gap: 2px;
-}
-
-.analysis-action-empty span {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.analysis-methodology-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-}
-
-.analysis-methodology-card {
-  padding: 15px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface-soft);
-}
-
-.analysis-methodology-card h4 {
-  margin: 0 0 8px;
-  font-size: 14px;
-}
-
-.analysis-methodology-card ul {
-  margin: 10px 0 0;
-  padding-left: 18px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.analysis-formula {
-  display: block;
-  margin-top: 10px;
-  padding: 9px 10px;
-  overflow-x: auto;
-  border-radius: 7px;
-  background: var(--surface-elevated);
-  color: var(--text-primary);
-  font-size: 11px;
-}
-
-.analysis-examples {
-  display: grid;
-  gap: 12px;
-}
-
-.analysis-example-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.analysis-example-tabs button {
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 7px 10px;
-  background: var(--surface-soft);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.analysis-example-tabs button.analysis-example-active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--text-primary);
-}
-
-.analysis-example-table {
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  overflow: hidden;
-  background: var(--surface-soft);
-}
-
-.analysis-example-row {
-  display: grid;
-  grid-template-columns: 90px 1fr 130px;
-  gap: 12px;
-  align-items: center;
-  padding: 9px 12px;
-  border-top: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.analysis-example-header {
-  border-top: 0;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-
-.analysis-example-row > span:nth-child(2) {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.analysis-bar {
-  display: block;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--accent);
-  opacity: .7;
-}
-
-@media (max-width: 900px) {
-  .analysis-risk-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .analysis-action-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 700px) {
-  .analysis-example-row {
-    grid-template-columns: 65px 1fr;
-  }
-
-  .analysis-example-row > span:last-child {
-    grid-column: 2;
-  }
-}
+.analysis-methodology-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.analysis-methodology-card { padding: 15px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.analysis-methodology-card h4 { margin: 0 0 8px; font-size: 14px; }
+.analysis-methodology-card ul { margin: 10px 0 0; padding-left: 18px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.analysis-formula { display: block; margin-top: 10px; padding: 9px 10px; overflow-x: auto; border-radius: 7px; background: var(--surface-elevated); color: var(--text-primary); font-size: 11px; }
+.analysis-examples { display: grid; gap: 12px; }
+.analysis-example-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.analysis-example-tabs button { border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 10px; background: var(--surface-soft); color: var(--text-secondary); cursor: pointer; font-size: 12px; }
+.analysis-example-tabs button.analysis-example-active { border-color: var(--accent); background: var(--accent-soft); color: var(--text-primary); }
+.analysis-example-table { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--surface-soft); }
+.analysis-example-row { display: grid; grid-template-columns: 90px 1fr 130px; gap: 12px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
+.analysis-example-header { border-top: 0; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.analysis-example-row > span:nth-child(2) { position: relative; display: flex; align-items: center; gap: 8px; }
+.analysis-bar { display: block; height: 5px; border-radius: 999px; background: var(--accent); opacity: .7; }
+@media (max-width: 900px) { .analysis-risk-grid { grid-template-columns: 1fr; } .analysis-action-header { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 700px) { .analysis-example-row { grid-template-columns: 65px 1fr; } .analysis-example-row > span:last-child { grid-column: 2; } }
