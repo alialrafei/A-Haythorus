@@ -134,7 +134,15 @@ export function AppShell() {
           onShardChange={monitoring.setSelectedShard}
         />
 
-        <main className="page">
+        <main
+          className="page"
+          style={{
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehavior: 'contain',
+          }}
+        >
           {monitoring.error &&
           monitoring.snapshots.length > 0 ? (
             <div className="stale-banner">
