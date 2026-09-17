@@ -1,0 +1,46 @@
+name: Add architecture media to README
+
+on:
+  push:
+    branches:
+      - docs/architecture-media
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Update README
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("README.md")
+          text = path.read_text()
+
+          marker = "![Dashboard Overview](jvm-frontend/docs/assets/light_mode_dashboard.png)"
+          section = """## Architecture at a glance\n\nThe architecture diagram below shows the main A-Haythorus deployment model: one sidecar attached to the target JVM, Linux process telemetry through `/proc`, Kubernetes API-based peer discovery, and bounded peer HTTP aggregation without a central push collector.\n\n### Static architecture\n\n![A-Haythorus Infrastructure Architecture](docs/assets/architecture.svg)\n\n### Animated architecture walkthrough\n\n![A-Haythorus Animated Architecture Walkthrough](docs/assets/architecture-animated.svg)\n\nThe animated version highlights the main telemetry and peer-discovery flows.\n"""
+
+          if "## Architecture at a glance" not in text:
+              if marker not in text:
+                  raise SystemExit("README marker not found")
+              text = text.replace(marker, marker + "\n\n" + section.rstrip(), 1)
+              path.write_text(text)
+          PY
+
+      - name: Commit README and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git rm .github/workflows/architecture-media-once.yml
+          git commit -m "docs: add architecture media to README"
+          git push
