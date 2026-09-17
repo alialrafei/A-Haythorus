@@ -52,6 +52,7 @@ spec:
     spec:
       serviceAccountName: ahaythorus
       shareProcessNamespace: true
+
       containers:
         - name: dummy-java-app
           image: ahaythorus-dummy-app:dev
@@ -66,71 +67,97 @@ spec:
             limits:
               cpu: "2"
               memory: 2Gi
+
         - name: a-haythorus
           image: a-haythorus:dev
           imagePullPolicy: IfNotPresent
+
           ports:
             - name: http
               containerPort: 8899
               protocol: TCP
+
           volumeMounts:
             - name: shared-tmp
               mountPath: /tmp
+
           env:
             - name: AH_RUNTIME_MODE
               value: kubernetes
+
             - name: AH_SERVER_HOST
               value: "0.0.0.0"
+
             - name: AH_SERVER_PORT
               value: "8899"
+
             - name: AH_UI_DIR
               value: /app/ui
+
             - name: AH_DISCOVERY_LABEL
               value: a-haythorus.io/enabled=true
+
             - name: AH_COLLECTOR_INTERVAL_MS
               value: "10000"
+
             - name: AH_HISTORY_MAX_SAMPLES
-              value: "30"
+              value: "120"
+
             - name: AH_ANALYSIS_WINDOW_SECONDS
-              value: "60"
+              value: "10"
+
             - name: AH_LEAK_WINDOW_SECONDS
               value: "300"
+
             - name: AH_LEAK_EWMA_ALPHA
-              value: "0.25"
+              value: "0.50"
+
             - name: AH_CLUSTER_MAX_CONCURRENT_REQUESTS
               value: "8"
+
             - name: AH_CLUSTER_SHARDING_ENABLED
               value: "true"
+
             - name: AH_CLUSTER_SHARD_COUNT
               value: "2"
+
             - name: AH_CLUSTER_SHARD_ALGORITHM
               value: sha256-modulo
+
             - name: AH_CLUSTER_SHARD_KEY_FIELDS
               value: namespace,label:app.kubernetes.io/name
+
             - name: AH_CLUSTER_SHARD_OVERRIDE_LABEL
               value: a-haythorus.io/shard
+
             - name: AH_CLUSTER_SHARD_MISSING_KEY_POLICY
               value: fallback
+
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+
             - name: APP_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.labels['app.kubernetes.io/name']
+
           readinessProbe:
             httpGet:
               path: /
@@ -138,12 +165,14 @@ spec:
             initialDelaySeconds: 2
             periodSeconds: 5
             timeoutSeconds: 2
+
           livenessProbe:
             tcpSocket:
               port: http
             initialDelaySeconds: 10
             periodSeconds: 15
             timeoutSeconds: 2
+
           resources:
             requests:
               cpu: 100m
@@ -151,9 +180,11 @@ spec:
             limits:
               cpu: "1"
               memory: 768Mi
+
       volumes:
         - name: shared-tmp
           emptyDir: {}
+
 ---
 apiVersion: v1
 kind: Service
@@ -162,13 +193,16 @@ metadata:
   namespace: ahaythorus-test
 spec:
   type: ClusterIP
+
   selector:
     app.kubernetes.io/name: ahaythorus-test
+
   ports:
     - name: http
-      port: 8899
+      port: 80
       targetPort: http
       protocol: TCP
+
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -176,6 +210,7 @@ metadata:
   name: ahaythorus
   namespace: ahaythorus-test
 spec:
+  ingressClassName: nginx
   rules:
     - host: ahaythorus.local
       http:
@@ -186,4 +221,4 @@ spec:
               service:
                 name: ahaythorus-test-ui
                 port:
-                  number: 8899
+                  number: 80
