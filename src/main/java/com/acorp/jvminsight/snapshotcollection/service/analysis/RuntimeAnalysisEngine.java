@@ -13,8 +13,8 @@ import org.slf4j.LoggerFactory;
  * Runtime-neutral analysis orchestrator.
  *
  * <p>It operates only on process telemetry and does not depend on JVM concepts. JVM, Python, Node,
- * native, or future runtime adapters can all feed this layer once they provide
- * {@link ProcessHistorySample}.
+ * native, or future runtime adapters can all feed this layer once they provide {@link
+ * ProcessHistorySample}.
  */
 public final class RuntimeAnalysisEngine {
 
@@ -59,9 +59,7 @@ public final class RuntimeAnalysisEngine {
     }
 
     ProcessAnalysisSnapshot result =
-        new ProcessAnalysisSnapshot(
-            CpuAnalyzer.analyze(window),
-            IoAnalyzer.analyze(window));
+        new ProcessAnalysisSnapshot(CpuAnalyzer.analyze(window), IoAnalyzer.analyze(window));
 
     log.debug(
         "Runtime analysis completed: cpuScore={}, ioScore={}",
@@ -71,8 +69,7 @@ public final class RuntimeAnalysisEngine {
     return result;
   }
 
-  private static List<ProcessHistorySample> recentWindow(
-      List<ProcessHistorySample> history) {
+  private static List<ProcessHistorySample> recentWindow(List<ProcessHistorySample> history) {
 
     if (history.isEmpty()) {
       log.warn("Cannot build analysis window: history is empty");

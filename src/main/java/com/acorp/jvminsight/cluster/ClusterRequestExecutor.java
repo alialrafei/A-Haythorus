@@ -33,7 +33,8 @@ public final class ClusterRequestExecutor {
             return supplier.get();
           } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while waiting for a cluster request permit.", ex);
+            throw new IllegalStateException(
+                "Interrupted while waiting for a cluster request permit.", ex);
           } finally {
             if (acquired) {
               PERMITS.release();

@@ -39,23 +39,28 @@ public class Main {
       return;
     }
 
-    Thread controller = new Thread(new KubernetesShardLabelController(), "kubernetes-shard-label-controller");
+    Thread controller =
+        new Thread(new KubernetesShardLabelController(), "kubernetes-shard-label-controller");
     controller.setDaemon(true);
     controller.start();
-    LOGGER.info("Started Kubernetes shard label controller for {} shard(s).", configuration.shardCount());
+    LOGGER.info(
+        "Started Kubernetes shard label controller for {} shard(s).", configuration.shardCount());
   }
 
   private static void superviseJvmCollectors() throws InterruptedException {
     Map<Long, Thread> collectors = new HashMap<>();
     while (!Thread.currentThread().isInterrupted()) {
-      collectors.entrySet().removeIf(entry -> {
-        Thread thread = entry.getValue();
-        if (!thread.isAlive()) {
-          LOGGER.info("Removing terminated collector for pid={}", entry.getKey());
-          return true;
-        }
-        return false;
-      });
+      collectors
+          .entrySet()
+          .removeIf(
+              entry -> {
+                Thread thread = entry.getValue();
+                if (!thread.isAlive()) {
+                  LOGGER.info("Removing terminated collector for pid={}", entry.getKey());
+                  return true;
+                }
+                return false;
+              });
 
       List<Long> discoveredPids;
       try {
@@ -78,7 +83,8 @@ public class Main {
           collector.start();
           collectors.put(pid, collector);
         } catch (Exception ex) {
-          LOGGER.warn("Failed starting collector for pid={}. Will retry during next JVM scan.", pid, ex);
+          LOGGER.warn(
+              "Failed starting collector for pid={}. Will retry during next JVM scan.", pid, ex);
         }
       }
       Thread.sleep(DISCOVERY_INTERVAL_MS);

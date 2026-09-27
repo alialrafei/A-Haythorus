@@ -125,7 +125,10 @@ public class JvmCollector implements Runnable {
     lastStoredSnapshot = snapshot;
     LOGGER.debug(
         "Snapshot stored for pid={} historySamples={} leakEvidence={} leakConfidence={}",
-        pid, retainedHistory.size() + 1, delta.getInstantaneousLeakScore(), delta.getLeakScore());
+        pid,
+        retainedHistory.size() + 1,
+        delta.getInstantaneousLeakScore(),
+        delta.getLeakScore());
   }
 
   private void collectThreadDump(JvmSnapshot snapshot) {
@@ -223,7 +226,9 @@ public class JvmCollector implements Runnable {
       snapshot.setProcessMemory(ProcessMemoryCollector.collect(pid, mbeanServer));
     } catch (SecurityException ex) {
       LOGGER.warn(
-          "Failed collecting native process memory for pid={}; JVM metrics remain available.", pid, ex);
+          "Failed collecting native process memory for pid={}; JVM metrics remain available.",
+          pid,
+          ex);
     }
   }
 
@@ -257,7 +262,9 @@ public class JvmCollector implements Runnable {
     if (removed) {
       LOGGER.info("Removed stale snapshot and history for terminated JVM pid={}", pid);
     } else {
-      LOGGER.debug("Snapshot for pid={} was not removed because the datastore now contains a different snapshot.", pid);
+      LOGGER.debug(
+          "Snapshot for pid={} was not removed because the datastore now contains a different snapshot.",
+          pid);
     }
   }
 

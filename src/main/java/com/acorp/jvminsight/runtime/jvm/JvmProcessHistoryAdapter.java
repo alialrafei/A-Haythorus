@@ -23,15 +23,7 @@ public final class JvmProcessHistoryAdapter {
 
     if (snapshot.getProcessIo() == null) {
       return new ProcessHistorySample(
-          snapshot.getTimestamp(),
-          cpuTimeNanos,
-          processors,
-          0L,
-          0L,
-          0L,
-          0L,
-          0L,
-          0L);
+          snapshot.getTimestamp(), cpuTimeNanos, processors, 0L, 0L, 0L, 0L, 0L, 0L);
     }
 
     return new ProcessHistorySample(

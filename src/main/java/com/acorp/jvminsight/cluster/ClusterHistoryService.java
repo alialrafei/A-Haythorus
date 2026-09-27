@@ -31,7 +31,9 @@ public final class ClusterHistoryService {
 
   public List<JvmHistoryResponse> getHistories(Integer requestedShard) {
     List<JvmHistoryResponse> histories =
-        requestedShard == null ? new ArrayList<>(SnapshotService.getLocalJvmHistories()) : new ArrayList<>();
+        requestedShard == null
+            ? new ArrayList<>(SnapshotService.getLocalJvmHistories())
+            : new ArrayList<>();
 
     List<URI> peers;
     try {
@@ -41,9 +43,10 @@ public final class ClusterHistoryService {
       return List.copyOf(histories);
     }
 
-    List<CompletableFuture<List<JvmHistoryResponse>>> requests = peers.stream()
-        .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
-        .toList();
+    List<CompletableFuture<List<JvmHistoryResponse>>> requests =
+        peers.stream()
+            .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
+            .toList();
 
     for (CompletableFuture<List<JvmHistoryResponse>> request : requests) {
       List<JvmHistoryResponse> peerHistories = request.join();

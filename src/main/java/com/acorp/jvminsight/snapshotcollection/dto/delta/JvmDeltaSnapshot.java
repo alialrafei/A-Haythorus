@@ -36,6 +36,7 @@ public class JvmDeltaSnapshot {
 
   /** Aggregate histogram byte movement across all matched classes before top-N truncation. */
   private long histogramPositiveBytes;
+
   private long histogramReclaimedBytes;
   private long histogramTopClassPositiveBytes;
 

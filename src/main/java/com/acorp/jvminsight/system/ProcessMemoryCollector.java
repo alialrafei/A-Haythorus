@@ -81,8 +81,9 @@ public final class ProcessMemoryCollector {
   private static long bufferPoolBytes(MBeanServerConnection connection, String poolName) {
     try {
       ObjectName name = new ObjectName("java.nio:type=BufferPool,name=" + poolName);
-      BufferPoolMXBean bean = ManagementFactory.newPlatformMXBeanProxy(
-          connection, name.toString(), BufferPoolMXBean.class);
+      BufferPoolMXBean bean =
+          ManagementFactory.newPlatformMXBeanProxy(
+              connection, name.toString(), BufferPoolMXBean.class);
       return Math.max(0L, bean.getMemoryUsed());
     } catch (Exception ignored) {
       return 0L;

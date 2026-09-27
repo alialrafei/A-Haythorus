@@ -67,8 +67,7 @@ public final class IoAnalyzer {
     long readSyscalls = intervals.stream().mapToLong(IoInterval::readSyscalls).sum();
     long writeSyscalls = intervals.stream().mapToLong(IoInterval::writeSyscalls).sum();
 
-    double averageReadPayload =
-        readSyscalls <= 0L ? 0.0 : readCharacters / (double) readSyscalls;
+    double averageReadPayload = readSyscalls <= 0L ? 0.0 : readCharacters / (double) readSyscalls;
     double averageWritePayload =
         writeSyscalls <= 0L ? 0.0 : writeCharacters / (double) writeSyscalls;
 
@@ -103,7 +102,8 @@ public final class IoAnalyzer {
             Map.entry("averageSyscallsPerSecond", syscalls.mean()),
             Map.entry("peakSyscallsPerSecond", syscalls.peak()),
             Map.entry("syscallPersistencePercent", syscalls.persistence() * 100.0),
-            Map.entry("persistencePercent", mean(storage.persistence(), syscalls.persistence()) * 100.0),
+            Map.entry(
+                "persistencePercent", mean(storage.persistence(), syscalls.persistence()) * 100.0),
             Map.entry("averageReadBytesPerSyscall", averageReadPayload),
             Map.entry("averageWriteBytesPerSyscall", averageWritePayload),
             Map.entry("storageReadRatioPercent", storageReadRatio * 100.0),
@@ -123,12 +123,7 @@ public final class IoAnalyzer {
                 averageReadPayload, averageWritePayload));
 
     return new AnalysisResult(
-        "io",
-        "Sustained I/O activity",
-        activity * 100.0,
-        evidence,
-        metrics,
-        reasons);
+        "io", "Sustained I/O activity", activity * 100.0, evidence, metrics, reasons);
   }
 
   private static SeriesAnalysis analyzeSeries(double[] values) {
@@ -168,8 +163,7 @@ public final class IoAnalyzer {
       }
 
       double seconds =
-          Duration.between(previous.timestamp(), current.timestamp()).toNanos()
-              / 1_000_000_000.0;
+          Duration.between(previous.timestamp(), current.timestamp()).toNanos() / 1_000_000_000.0;
 
       if (seconds <= 0.0) {
         continue;
@@ -212,10 +206,8 @@ public final class IoAnalyzer {
         "Sustained I/O activity",
         0.0,
         List.of(
-            EvidenceSignal.unavailable(
-                "storage-io-activity", "Insufficient process I/O history."),
-            EvidenceSignal.unavailable(
-                "syscall-io-activity", "Insufficient process I/O history.")),
+            EvidenceSignal.unavailable("storage-io-activity", "Insufficient process I/O history."),
+            EvidenceSignal.unavailable("syscall-io-activity", "Insufficient process I/O history.")),
         Map.of(),
         List.of("Insufficient process I/O history to evaluate recent activity."));
   }
@@ -231,8 +223,7 @@ public final class IoAnalyzer {
       double persistence,
       double intensity,
       double activity) {
-    private static final SeriesAnalysis EMPTY =
-        new SeriesAnalysis(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    private static final SeriesAnalysis EMPTY = new SeriesAnalysis(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
   }
 
   private record IoInterval(

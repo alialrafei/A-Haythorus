@@ -9,12 +9,12 @@ import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.analysis.EvidenceSignal;
-import com.acorp.jvminsight.snapshotcollection.service.analysis.WeightedEvidenceScore;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.HistogramDelta;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.LeakSeverity;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.Recommendation;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.RecommendationSeverity;
+import com.acorp.jvminsight.snapshotcollection.service.analysis.WeightedEvidenceScore;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,8 +25,8 @@ import java.util.Map;
  * History-aware JVM memory-retention analyzer.
  *
  * <p>Each signal is normalized to [0,1]. Unavailable evidence is excluded from the aggregate rather
- * than counted as zero. This distinction matters when a collector/runtime cannot provide one of
- * the signals.
+ * than counted as zero. This distinction matters when a collector/runtime cannot provide one of the
+ * signals.
  */
 public final class HistoricalLeakAnalyzer {
 
@@ -233,8 +233,7 @@ public final class HistoricalLeakAnalyzer {
           "gc-reclaim", 0.0, "GC ran, but no positive heap growth needed reclaim analysis.");
     }
 
-    double reclaimRatio =
-        clamp01(heapTrend.reclaimed() / (double) heapTrend.positiveGrowth());
+    double reclaimRatio = clamp01(heapTrend.reclaimed() / (double) heapTrend.positiveGrowth());
     double retentionRatio = 1.0 - reclaimRatio;
     double value = clamp01(retentionRatio * heapTrend.persistence());
 
@@ -256,12 +255,10 @@ public final class HistoricalLeakAnalyzer {
    * histogramEvidence = (growthDominance + topClassShare) / 2
    * </pre>
    */
-  private static EvidenceSignal histogramEvidence(
-      JvmDeltaSnapshot delta, List<String> reasons) {
+  private static EvidenceSignal histogramEvidence(JvmDeltaSnapshot delta, List<String> reasons) {
 
     if (delta.getHistogramDelta() == null) {
-      return EvidenceSignal.unavailable(
-          "histogram-growth", "Histogram delta is unavailable.");
+      return EvidenceSignal.unavailable("histogram-growth", "Histogram delta is unavailable.");
     }
 
     long positiveBytes = delta.getHistogramPositiveBytes();
@@ -289,9 +286,7 @@ public final class HistoricalLeakAnalyzer {
       reasons.add(
           String.format(
               "%s accounted for %.0f%% of positive histogram byte growth; %.0f%% of total matched-class movement was upward.",
-              topGrowingClass.getClassName(),
-              topClassShare * 100.0,
-              growthDominance * 100.0));
+              topGrowingClass.getClassName(), topClassShare * 100.0, growthDominance * 100.0));
     }
 
     return EvidenceSignal.available(
@@ -401,16 +396,13 @@ public final class HistoricalLeakAnalyzer {
     return total;
   }
 
-  private static Recommendation memoryRecommendation(
-      double confidence, List<String> reasons) {
+  private static Recommendation memoryRecommendation(double confidence, List<String> reasons) {
 
     Recommendation recommendation = new Recommendation();
     recommendation.setSeverity(
         confidence >= 80.0
             ? RecommendationSeverity.CRITICAL
-            : confidence >= 60.0
-                ? RecommendationSeverity.WARNING
-                : RecommendationSeverity.INFO);
+            : confidence >= 60.0 ? RecommendationSeverity.WARNING : RecommendationSeverity.INFO);
     recommendation.setConfidence(confidence / 100.0);
     recommendation.setTitle("Persistent memory-retention pattern detected");
     recommendation.setDiagnosis(
@@ -436,11 +428,9 @@ public final class HistoricalLeakAnalyzer {
     delta.setLeakSeverity(LeakSeverity.LOW);
     delta.setHeapGrowthPersistence(0.0);
     delta.setHistoricalWeight(HISTORICAL_WEIGHT);
-    delta.setLeakReasons(
-        List.of("Insufficient history to evaluate a memory-retention trend."));
+    delta.setLeakReasons(List.of("Insufficient history to evaluate a memory-retention trend."));
     delta.setRecommendations(List.of());
   }
-
 
   private record Trend(
       long first,

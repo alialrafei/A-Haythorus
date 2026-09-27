@@ -40,16 +40,19 @@ public final class ClusterSnapshotService {
     List<URI> peers;
     try {
       peers = discovery.discover(requestedShard);
-      LOGGER.debug("Discovered {} sidecar(s) for {}.", peers.size(),
+      LOGGER.debug(
+          "Discovered {} sidecar(s) for {}.",
+          peers.size(),
           requestedShard == null ? "local shard" : "requested shard " + requestedShard);
     } catch (Exception ex) {
       LOGGER.warn("Peer discovery failed. Returning local snapshot only.", ex);
       return requestedShard == null ? List.copyOf(snapshots.values()) : List.of();
     }
 
-    List<CompletableFuture<AggregatorSnapshot>> requests = peers.stream()
-        .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
-        .toList();
+    List<CompletableFuture<AggregatorSnapshot>> requests =
+        peers.stream()
+            .map(peer -> ClusterRequestExecutor.supplyAsync(() -> fetchPeer(peer)))
+            .toList();
 
     for (CompletableFuture<AggregatorSnapshot> request : requests) {
       AggregatorSnapshot peerSnapshot = request.join();
