@@ -51,14 +51,14 @@ export function ProblemsPage({ onOpenJvm }: { onOpenJvm: (key: string) => void; 
     }
   };
 
-  if (loading) return <EmptyState icon="time" title="Loading findings" description="Loading persisted JVM findings." />;
+  if (loading) return <EmptyState icon="time" title="Loading findings" description="Loading recorded JVM findings." />;
   if (error) return <EmptyState icon="error" title="Unable to load findings" description={error} />;
   if (notifications.length === 0) return <EmptyState icon="tick-circle" title="No recorded findings" description="No notifications have been generated for the selected shard." />;
 
   return (
     <div className="page-stack">
       <section className="toolbar-panel">
-        <div><span className="eyebrow">Notifications</span><h2>Problems & findings</h2><p>Persisted findings produced by the JVM analysis engine.</p></div>
+        <div><span className="eyebrow">Notifications</span><h2>Problems & findings</h2><p>Findings produced by the JVM analysis engine; optional persistence keeps them across restarts.</p></div>
         <div className="problem-count">{notifications.length} notifications</div>
       </section>
       <section className="problem-list">
@@ -73,7 +73,7 @@ export function ProblemsPage({ onOpenJvm }: { onOpenJvm: (key: string) => void; 
                 <div className="problem-title-row"><strong>{notification.message}</strong><StatusBadge level={level} compact /></div>
                 <p>{notification.id}</p>
                 <span>{notification.namespace}/{notification.pod} · JVM {notification.pid} · {notification.instances?.length ?? 0} occurrence(s){latest != null ? ' · ' + new Date(latest).toLocaleString() : ''}</span>
-                {expandedKey === key && <div className="problem-evidence">{evidenceLoading ? <span>Loading evidence…</span> : evidence.length === 0 ? <span>No persisted evidence available.</span> : evidence.map((item) => <div key={toEpochMillis(item.timestamp)}><strong>{item.message}</strong><pre>{JSON.stringify(item.payload, null, 2)}</pre></div>)}</div>}
+                {expandedKey === key && <div className="problem-evidence">{evidenceLoading ? <span>Loading evidence…</span> : evidence.length === 0 ? <span>No saved evidence available.</span> : evidence.map((item) => <div key={toEpochMillis(item.timestamp)}><strong>{item.message}</strong><pre>{JSON.stringify(item.payload, null, 2)}</pre></div>)}</div>}
               </div>
               <div className="problem-actions">
                 <button type="button" className="button button-secondary" onClick={() => void toggleEvidence(notification)}>{expandedKey === key ? 'Hide evidence' : 'Evidence'}</button>
