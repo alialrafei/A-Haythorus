@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class SavedNotification implements Serializable {
   private String id;
+  private String hash;
   private String message;
   private String severity;
   private List<Instant> instances;
