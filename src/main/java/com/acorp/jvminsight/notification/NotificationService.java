@@ -51,9 +51,7 @@ public final class NotificationService {
     }
 
     JvmDeltaSnapshot delta = snapshot.getDelta();
-    Instant timestamp = snapshot.getTimestamp() instanceof Instant
-        ? (Instant) snapshot.getTimestamp()
-        : Instant.now();
+    Instant timestamp = snapshot.getTimestamp() == null ? Instant.now() : snapshot.getTimestamp();
 
     if (snapshot.getDeadlocks() != null && snapshot.getDeadlocks().length > 0) {
       Map<String, Object> deadlockEvidence = new LinkedHashMap<>();
