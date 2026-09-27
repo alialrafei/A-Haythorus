@@ -11,6 +11,8 @@ export function ResourcesPage({ onOpenJvm }: { onOpenJvm: (key: string) => void 
   const totalWriteRate = jvms.reduce((sum, node) => sum + (node.snapshot.delta?.ioDelta?.writeBytesPerSecond ?? 0), 0);
   const totalRead = jvms.reduce((sum, node) => sum + (node.snapshot.processIo?.readBytes ?? 0), 0);
   const totalWrite = jvms.reduce((sum, node) => sum + (node.snapshot.processIo?.writeBytes ?? 0), 0);
+  const totalResident = jvms.reduce((sum, node) => sum + (node.snapshot.processMemory?.residentBytes ?? 0), 0);
+  const totalSharedResident = jvms.reduce((sum, node) => sum + (node.snapshot.processMemory?.sharedResidentBytes ?? 0), 0);
   const cpuAnalysis = jvms.map((node) => node.snapshot.delta?.cpuAnalysis).filter((value): value is NonNullable<typeof value> => value != null);
   const ioAnalysis = jvms.map((node) => node.snapshot.delta?.ioAnalysis).filter((value): value is NonNullable<typeof value> => value != null);
   const avgCpuPressure = cpuAnalysis.length === 0 ? 0 : cpuAnalysis.reduce((sum, analysis) => sum + analysis.score, 0) / cpuAnalysis.length;
@@ -25,6 +27,8 @@ export function ResourcesPage({ onOpenJvm }: { onOpenJvm: (key: string) => void 
         <MetricCard label="I/O activity" value={formatScore(avgIoActivity)} detail="Backend sustained I/O analysis" icon="exchange" />
         <MetricCard label="Disk read throughput" value={`${formatBytes(totalReadRate)}/s`} detail={`cumulative ${formatBytes(totalRead)}`} icon="download" />
         <MetricCard label="Disk write throughput" value={`${formatBytes(totalWriteRate)}/s`} detail={`cumulative ${formatBytes(totalWrite)}`} icon="upload" />
+        <MetricCard label="Resident memory" value={formatBytes(totalResident)} detail="RSS across monitored processes" icon="memory" />
+        <MetricCard label="Shared resident memory" value={formatBytes(totalSharedResident)} detail="Shared pages reported by Linux /proc" icon="layers" />
       </section>
 
       <section className="panel">
@@ -34,7 +38,7 @@ export function ResourcesPage({ onOpenJvm }: { onOpenJvm: (key: string) => void 
         </div>
         <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>Application</th><th>Pod</th><th>PID</th><th>Process CPU</th><th>CPU pressure</th><th>I/O activity</th><th>Read / s</th><th>Write / s</th><th>Cumulative read</th><th>Cumulative write</th></tr></thead>
+            <thead><tr><th>Application</th><th>Pod</th><th>PID</th><th>Process CPU</th><th>CPU pressure</th><th>I/O activity</th><th>Read / s</th><th>Write / s</th><th>RSS</th><th>Shared resident</th><th>Cumulative read</th><th>Cumulative write</th></tr></thead>
             <tbody>
               {jvms.map((node) => {
                 const snapshot = node.snapshot;
@@ -53,6 +57,8 @@ export function ResourcesPage({ onOpenJvm }: { onOpenJvm: (key: string) => void 
                     <td>{formatScore(ioHistorical?.score ?? 0)}</td>
                     <td>{formatBytes(io?.readBytesPerSecond ?? 0)}/s</td>
                     <td>{formatBytes(io?.writeBytesPerSecond ?? 0)}/s</td>
+                    <td>{formatBytes(snapshot.processMemory?.residentBytes ?? 0)}</td>
+                    <td>{formatBytes(snapshot.processMemory?.sharedResidentBytes ?? 0)}</td>
                     <td>{formatBytes(snapshot.processIo?.readBytes ?? 0)}</td>
                     <td>{formatBytes(snapshot.processIo?.writeBytes ?? 0)}</td>
                   </tr>
