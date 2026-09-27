@@ -129,9 +129,32 @@ public final class SavedNotificationStore {
     store.save(key, mapper.writeValueAsBytes(evidence));
   }
 
-  public List<SavedEvidence> getEvidence(String notificationId) throws IOException {
-    String prefix = EVIDENCE_PREFIX + safeId(notificationId) + "/";
+  public List<SavedEvidence> getEvidence(
+      String namespace, String pod, long pid, String notificationId) throws IOException {
+    String prefix =
+        EVIDENCE_PREFIX
+            + safeId(namespace)
+            + "_"
+            + safeId(pod)
+            + "_"
+            + pid
+            + "/";
     return store.list(prefix).stream()
+        .filter(key -> key.endsWith(".json"))
+        .map(
+            key -> {
+              try {
+                return mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
+              } catch (IOException e) {
+                throw new PersistenceReadException(e);
+              }
+            })
+        .filter(evidence -> notificationId.equals(evidence.getNotificationId()))
+        .toList();
+  }
+
+  public List<SavedEvidence> getEvidence(String notificationId) throws IOException {
+    return store.list(EVIDENCE_PREFIX).stream()
         .map(
             key -> {
               try {
