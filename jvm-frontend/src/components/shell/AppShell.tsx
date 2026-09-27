@@ -138,6 +138,7 @@ export function AppShell() {
           shardingEnabled={monitoring.sharding.enabled}
           shardCount={monitoring.sharding.shardCount}
           selectedShard={monitoring.selectedShard}
+          shardLabels={monitoring.shardLabels}
           onShardChange={monitoring.setSelectedShard}
         />
 
