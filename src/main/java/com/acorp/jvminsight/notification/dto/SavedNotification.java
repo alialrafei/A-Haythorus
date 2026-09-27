@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class SavedNotification implements Serializable {
   private String id;
+  private String message;
   private List<Instant> instances;
 }
