@@ -5,7 +5,8 @@ import com.acorp.jvminsight.notification.NotificationService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
-import java.util.List;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 public final class NotificationHandler implements HttpHandler {
 
@@ -26,16 +27,42 @@ public final class NotificationHandler implements HttpHandler {
 
     String prefix = "/api/v1/notifications/";
     if (path.startsWith(prefix) && path.endsWith("/evidence")) {
-      String id = path.substring(prefix.length(), path.length() - "/evidence".length());
-      if (id.isBlank()) {
-        JsonResponse.badRequest(exchange, "Missing notification id.");
+      String id = decode(path.substring(prefix.length(), path.length() - "/evidence".length()));
+      String namespace = query(exchange, "namespace");
+      String pod = query(exchange, "pod");
+      String pidValue = query(exchange, "pid");
+      if (id.isBlank() || namespace == null || pod == null || pidValue == null) {
+        JsonResponse.badRequest(exchange, "Notification id, namespace, pod and pid are required.");
         return;
       }
-      JsonResponse.ok(exchange, notificationService.getEvidence(id));
+      long pid;
+      try {
+        pid = Long.parseLong(pidValue);
+      } catch (NumberFormatException ex) {
+        JsonResponse.badRequest(exchange, "Invalid pid: " + pidValue);
+        return;
+      }
+      JsonResponse.ok(exchange, notificationService.getEvidence(namespace, pod, pid, id));
       return;
     }
 
     JsonResponse.notFound(exchange);
+  }
+
+  private String query(HttpExchange exchange, String name) {
+    String raw = exchange.getRequestURI().getRawQuery();
+    if (raw == null) return null;
+    for (String parameter : raw.split("&")) {
+      String[] pair = parameter.split("=", 2);
+      if (pair.length == 2 && name.equals(pair[0])) {
+        return decode(pair[1]);
+      }
+    }
+    return null;
+  }
+
+  private String decode(String value) {
+    return URLDecoder.decode(value, StandardCharsets.UTF_8);
   }
 
   private String normalize(String path) {
