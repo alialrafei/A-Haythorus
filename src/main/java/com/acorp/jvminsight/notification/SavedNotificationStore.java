@@ -8,7 +8,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.ArrayList;
 
 public final class SavedNotificationStore {
 
