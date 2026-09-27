@@ -157,8 +157,7 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
       nextSnapshots.forEach((podSnapshot) => {
         const shardMeta = podSnapshot.pod.shard;
         if (shardMeta) {
-          discoveredLabels[shardMeta.shardId] =
-            shardMeta.shardName + ' · ' + podSnapshot.pod.name;
+          discoveredLabels[shardMeta.shardId] = shardMeta.shardName;
         }
       });
       if (Object.keys(discoveredLabels).length > 0) {
@@ -196,8 +195,7 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
             shardSnapshots.forEach((podSnapshot) => {
               const shardMeta = podSnapshot.pod.shard;
               if (shardMeta) {
-                discoveredLabels[shardMeta.shardId] =
-                  shardMeta.shardName + ' · ' + podSnapshot.pod.name;
+                discoveredLabels[shardMeta.shardId] = shardMeta.shardName;
               }
             });
           }
