@@ -274,6 +274,7 @@ public final class NotificationService {
 
       synchronized (stateLock) {
         loaded.stream()
+            .peek(this::ensureNotificationHash)
             .sorted(
                 Comparator.comparing(
                         (SavedNotification notification) -> latest(notification.getInstances()))
