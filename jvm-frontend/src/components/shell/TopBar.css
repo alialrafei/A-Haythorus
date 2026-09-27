@@ -42,7 +42,7 @@
 
 .shard-select {
   height: 24px;
-  min-width: 42px;
+  min-width: 190px;
   padding: 0 21px 0 8px;
   border: 1px solid var(--border-strong);
   border-radius: 7px;
