@@ -12,6 +12,7 @@ import { OverviewPage } from '../../pages/OverviewPage';
 import { PodsPage } from '../../pages/PodsPage';
 import { ProblemsPage } from '../../pages/ProblemsPage';
 import { ResourcesPage } from '../../pages/ResourcesPage';
+import { ProcPage } from '../../pages/ProcPage';
 import { HistoricalAnalysisPage } from '../../pages/HistoricalAnalysisPage';
 import { JvmPage } from '../../pages/JvmPage';
 import { useMonitoring } from '../../context/MonitoringContext';
@@ -31,6 +32,10 @@ const pageCopy: Record<
   resources: {
     title: 'Process resources',
     subtitle: 'CPU and Linux I/O telemetry across monitored JVMs',
+  },
+  proc: {
+    title: '/proc telemetry',
+    subtitle: 'Linux process CPU, I/O, and memory measurements',
   },
   history: {
     title: 'Historical analysis',
@@ -163,6 +168,10 @@ export function AppShell() {
 
           {page === 'resources' ? (
             <ResourcesPage onOpenJvm={openJvm} />
+          ) : null}
+
+          {page === 'proc' ? (
+            <ProcPage onOpenJvm={openJvm} />
           ) : null}
 
           {page === 'history' ? <HistoricalAnalysisPage /> : null}
