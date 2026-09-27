@@ -1,6 +1,5 @@
 package com.acorp.jvminsight.cluster;
 
-import com.acorp.jvminsight.httpserver.service.SnapshotService;
 import com.acorp.jvminsight.notification.NotificationService;
 import com.acorp.jvminsight.notification.dto.SavedNotification;
 import java.net.URI;
