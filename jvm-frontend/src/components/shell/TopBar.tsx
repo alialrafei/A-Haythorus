@@ -18,6 +18,7 @@ export function TopBar({
   shardCount,
   selectedShard,
   onShardChange,
+  shardLabels,
 }: {
   title: string;
   subtitle: string;
@@ -31,6 +32,7 @@ export function TopBar({
   shardCount: number;
   selectedShard: number;
   onShardChange: (shard: number) => void;
+  shardLabels?: Record<number, string>;
 }) {
   return (
     <header className="topbar">
@@ -54,7 +56,7 @@ export function TopBar({
             >
               {Array.from({ length: shardCount }, (_, shard) => (
                 <option key={shard} value={shard}>
-                  {shard}
+                  {shardLabels?.[shard] ?? `Shard ${shard}`}
                 </option>
               ))}
             </select>
