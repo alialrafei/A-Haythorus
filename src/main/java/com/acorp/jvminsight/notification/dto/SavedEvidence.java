@@ -13,5 +13,6 @@ import lombok.NoArgsConstructor;
 public class SavedEvidence implements Serializable {
   private String notificationId;
   private Instant timestamp;
+  private String message;
   private JsonNode payload;
 }
