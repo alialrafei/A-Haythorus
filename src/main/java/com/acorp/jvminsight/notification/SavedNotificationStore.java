@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,13 +24,16 @@ public final class SavedNotificationStore {
     this.mapper = new ObjectMapper().registerModule(new JavaTimeModule());
   }
 
-  public synchronized SavedNotification recordNotification(String id, Instant timestamp)
-      throws IOException {
+  public synchronized SavedNotification recordNotification(
+      String id, String message, Instant timestamp) throws IOException {
     SavedNotification notification =
-        getNotification(id).orElseGet(() -> new SavedNotification(id, new java.util.ArrayList<>()));
+        getNotification(id)
+            .orElseGet(() -> new SavedNotification(id, message, new ArrayList<>()));
+
+    notification.setMessage(message);
 
     if (notification.getInstances() == null) {
-      notification.setInstances(new java.util.ArrayList<>());
+      notification.setInstances(new ArrayList<>());
     }
 
     notification.getInstances().add(timestamp);
@@ -52,8 +56,7 @@ public final class SavedNotificationStore {
       return Optional.empty();
     }
 
-    Optional<byte[]> data =
-        store.read(NOTIFICATION_PREFIX + safeId(id) + ".json");
+    Optional<byte[]> data = store.read(NOTIFICATION_PREFIX + safeId(id) + ".json");
 
     if (data.isEmpty()) {
       return Optional.empty();
@@ -86,8 +89,7 @@ public final class SavedNotificationStore {
         .map(
             key -> {
               try {
-                return mapper.readValue(
-                    store.read(key).orElseThrow(), SavedEvidence.class);
+                return mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
               } catch (IOException e) {
                 throw new PersistenceReadException(e);
               }
