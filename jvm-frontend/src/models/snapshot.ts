@@ -343,3 +343,23 @@ export interface JvmHistoryPoint {
   processDirectBufferBytes: number;
   processMappedBufferBytes: number;
 }
+
+
+export interface SavedNotification {
+  id: string;
+  message: string;
+  instances: TimestampValue[];
+  namespace: string;
+  pod: string;
+  pid: number;
+}
+
+export interface SavedEvidence {
+  notificationId: string;
+  namespace: string;
+  pod: string;
+  pid: number;
+  timestamp: TimestampValue;
+  message: string;
+  payload: unknown;
+}
