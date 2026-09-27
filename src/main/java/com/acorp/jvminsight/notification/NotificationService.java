@@ -51,6 +51,7 @@ public final class NotificationService {
   private final boolean persistenceEnabled;
   private final int maxInMemoryNotifications;
   private final int maxPendingEvidence;
+  private final int maxInstancesPerNotification;
   private final long flushIntervalSeconds;
   private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
   private final int retentionDays;
@@ -63,6 +64,8 @@ public final class NotificationService {
         Math.max(1, ConfigLoader.getInt("notification.max.in.memory", 1000));
     this.maxPendingEvidence =
         Math.max(1, ConfigLoader.getInt("persistence.max.pending.evidence", 2000));
+    this.maxInstancesPerNotification =
+        Math.max(1, ConfigLoader.getInt("notification.max.instances.per.notification", 100));
     this.flushIntervalSeconds =
         Math.max(1, ConfigLoader.getLong("persistence.flush.interval.seconds", 30));
     this.retentionDays =
@@ -222,6 +225,9 @@ public final class NotificationService {
       }
 
       notification.getInstances().add(timestamp);
+      while (notification.getInstances().size() > maxInstancesPerNotification) {
+        notification.getInstances().remove(0);
+      }
 
       dirtyNotifications.put(key, copyNotification(notification));
 
