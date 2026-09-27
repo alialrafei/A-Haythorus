@@ -24,6 +24,16 @@ public final class NotificationHandler implements HttpHandler {
     }
 
     String path = normalize(exchange.getRequestURI().getPath());
+    try {
+      handleRequest(exchange, path);
+    } catch (IllegalArgumentException ex) {
+      JsonResponse.badRequest(exchange, ex.getMessage());
+    } catch (Exception ex) {
+      JsonResponse.internalServerError(exchange, "Failed to process notification request.");
+    }
+  }
+
+  private void handleRequest(HttpExchange exchange, String path) throws IOException {
     if (RouteConstants.NOTIFICATIONS.equals(path)) {
       Integer shard = parseShard(exchange);
       boolean local = ClusterHeaders.LOCAL.equalsIgnoreCase(
