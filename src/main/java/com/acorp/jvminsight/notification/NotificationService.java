@@ -160,8 +160,8 @@ public final class NotificationService {
                           message,
                           severity,
                           new ArrayList<>(),
-                          pod.namespace(),
-                          pod.name(),
+                          pod.getNamespace(),
+                          pod.getName(),
                           snapshot.getPid())
                       : existing;
               notification.setMessage(message);
