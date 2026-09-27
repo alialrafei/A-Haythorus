@@ -52,6 +52,41 @@ public final class ClusterNotificationService {
     return List.copyOf(notifications);
   }
 
+  public List<com.acorp.jvminsight.notification.dto.SavedEvidence> getEvidence(
+      Integer requestedShard, String namespace, String pod, long pid, String notificationId) {
+    List<com.acorp.jvminsight.notification.dto.SavedEvidence> evidence =
+        new ArrayList<>(NotificationService.getInstance().getEvidence(namespace, pod, pid, notificationId));
+    List<URI> peers;
+    try {
+      peers = discovery.discover(requestedShard);
+    } catch (Exception ex) {
+      return List.copyOf(evidence);
+    }
+
+    List<CompletableFuture<List<com.acorp.jvminsight.notification.dto.SavedEvidence>>> requests =
+        peers.stream()
+            .map(
+                peer ->
+                    ClusterRequestExecutor.supplyAsync(
+                        () -> {
+                          try {
+                            return client.fetchNotificationEvidence(
+                                peer, namespace, pod, pid, notificationId);
+                          } catch (Exception ex) {
+                            LOGGER.warn("Failed to fetch evidence from peer {}.", peer, ex);
+                            return List.of();
+                          }
+                        }))
+            .toList();
+
+    for (CompletableFuture<List<com.acorp.jvminsight.notification.dto.SavedEvidence>> request :
+        requests) {
+      List<com.acorp.jvminsight.notification.dto.SavedEvidence> peerEvidence = request.join();
+      if (peerEvidence != null) evidence.addAll(peerEvidence);
+    }
+    return List.copyOf(evidence);
+  }
+
   private List<SavedNotification> fetchPeer(URI peer) {
     try {
       return client.fetchNotifications(peer);
