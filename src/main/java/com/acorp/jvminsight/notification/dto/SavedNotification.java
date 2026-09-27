@@ -14,4 +14,7 @@ public class SavedNotification implements Serializable {
   private String id;
   private String message;
   private List<Instant> instances;
+  private String namespace;
+  private String pod;
+  private long pid;
 }
