@@ -13,7 +13,10 @@ import com.acorp.jvminsight.snapshotcollection.dto.delta.Recommendation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -199,7 +202,7 @@ public final class NotificationService {
       Object payload) {
 
     PodInfo pod = PodInfoProvider.getPodInfo();
-    String key = notificationKey(id, pod, snapshot.getPid());
+    String key = notificationKey(id, severity, message, pod, snapshot.getPid());
 
     synchronized (stateLock) {
       SavedNotification notification = notifications.get(key);
@@ -208,6 +211,7 @@ public final class NotificationService {
         notification =
             new SavedNotification(
                 id,
+                notificationHash(id, severity, message),
                 message,
                 severity,
                 new ArrayList<>(),
@@ -234,6 +238,7 @@ public final class NotificationService {
       if (persistenceEnabled) {
         SavedEvidence evidence =
             new SavedEvidence(
+                notification.getHash(),
                 id,
                 pod.getNamespace(),
                 pod.getName(),
@@ -377,6 +382,7 @@ public final class NotificationService {
   private SavedNotification copyNotification(SavedNotification source) {
     return new SavedNotification(
         source.getId(),
+        source.getHash(),
         source.getMessage(),
         source.getSeverity(),
         source.getInstances() == null
@@ -388,19 +394,44 @@ public final class NotificationService {
   }
 
   private String notificationKey(SavedNotification notification) {
-    return notificationKey(
-        notification.getId(),
-        notification.getNamespace(),
-        notification.getPod(),
-        notification.getPid());
+    return notification.getNamespace()
+        + "/"
+        + notification.getPod()
+        + ":"
+        + notification.getPid()
+        + ":"
+        + notification.getHash();
   }
 
-  private String notificationKey(String id, PodInfo pod, long pid) {
-    return notificationKey(id, pod.getNamespace(), pod.getName(), pid);
+  private String notificationKey(
+      String id, String severity, String message, PodInfo pod, long pid) {
+    return pod.getNamespace()
+        + "/"
+        + pod.getName()
+        + ":"
+        + pid
+        + ":"
+        + notificationHash(id, severity, message);
   }
 
-  private String notificationKey(String id, String namespace, String pod, long pid) {
-    return namespace + "/" + pod + ":" + pid + ":" + id;
+  private String notificationHash(String id, String severity, String message) {
+    String canonical = id + "\u0000" + severity + "\u0000" + message;
+    try {
+      return java.util.HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256")
+                  .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException ex) {
+      throw new IllegalStateException("SHA-256 is unavailable in this JVM.", ex);
+    }
+  }
+
+  private void ensureNotificationHash(SavedNotification notification) {
+    if (notification.getHash() == null || notification.getHash().isBlank()) {
+      notification.setHash(
+          notificationHash(
+              notification.getId(), notification.getSeverity(), notification.getMessage()));
+    }
   }
 
   private Instant latest(List<Instant> instances) {
