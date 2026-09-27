@@ -49,7 +49,11 @@ public final class ConfigLoader {
           Map.entry("pod.app", "APP_NAME"),
           Map.entry("persistence.enabled", "AH_PERSISTENCE_ENABLED"),
           Map.entry("persistence.type", "AH_PERSISTENCE_TYPE"),
-          Map.entry("persistence.path", "AH_PERSISTENCE_PATH"));
+          Map.entry("persistence.path", "AH_PERSISTENCE_PATH"),
+          Map.entry("notification.max.in.memory", "AH_NOTIFICATION_MAX_IN_MEMORY"),
+          Map.entry("persistence.max.pending.evidence", "AH_PERSISTENCE_MAX_PENDING_EVIDENCE"),
+          Map.entry("persistence.flush.interval.seconds", "AH_PERSISTENCE_FLUSH_INTERVAL_SECONDS"),
+          Map.entry("persistence.retention.days", "AH_PERSISTENCE_RETENTION_DAYS"));
 
   private ConfigLoader() {}
 
