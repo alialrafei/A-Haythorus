@@ -59,6 +59,24 @@ public final class SidecarClient {
     }
   }
 
+  public List<com.acorp.jvminsight.notification.dto.SavedNotification> fetchNotifications(URI sidecarUri) {
+    URI notificationsUri = sidecarUri.resolve("/api/v1/notifications");
+    HttpRequest request = localGet(notificationsUri);
+    try {
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      requireOk(sidecarUri, response);
+      return MAPPER.readValue(
+          response.body(),
+          new TypeReference<List<com.acorp.jvminsight.notification.dto.SavedNotification>>() {});
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Peer notification request interrupted: " + sidecarUri, ex);
+    } catch (Exception ex) {
+      throw new IllegalStateException("Failed to fetch peer notifications from " + sidecarUri, ex);
+    }
+  }
+
   public List<JvmHistoryResponse> fetchHistories(URI sidecarUri) {
     URI historyUri = sidecarUri.resolve("/api/v1/history");
     HttpRequest request = localGet(historyUri);
