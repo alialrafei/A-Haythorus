@@ -47,7 +47,7 @@ public final class SavedNotificationStore {
     }
 
     store.save(
-        NOTIFICATION_PREFIX + safeId(notification.getId()) + ".json",
+        notificationKey(notification),
         mapper.writeValueAsBytes(notification));
   }
 
@@ -69,7 +69,16 @@ public final class SavedNotificationStore {
       return Optional.empty();
     }
 
-    Optional<byte[]> data = store.read(NOTIFICATION_PREFIX + safeId(id) + ".json");
+    Optional<byte[]> data = store.list(NOTIFICATION_PREFIX).stream()
+        .filter(key -> key.endsWith("_" + safeId(id) + ".json"))
+        .findFirst()
+        .flatMap(key -> {
+          try {
+            return store.read(key);
+          } catch (IOException e) {
+            throw new PersistenceReadException(e);
+          }
+        });
 
     if (data.isEmpty()) {
       return Optional.empty();
@@ -79,7 +88,13 @@ public final class SavedNotificationStore {
   }
 
   public void recordEvidence(
-      String notificationId, String message, Instant timestamp, Object payload) throws IOException {
+      String namespace,
+      String pod,
+      long pid,
+      String notificationId,
+      String message,
+      Instant timestamp,
+      Object payload) throws IOException {
     SavedEvidence evidence =
         new SavedEvidence(
             notificationId,
@@ -119,6 +134,18 @@ public final class SavedNotificationStore {
               }
             })
         .toList();
+  }
+
+  private String notificationKey(SavedNotification notification) {
+    return NOTIFICATION_PREFIX
+        + safeId(notification.getNamespace())
+        + "_"
+        + safeId(notification.getPod())
+        + "_"
+        + notification.getPid()
+        + "_"
+        + safeId(notification.getId())
+        + ".json";
   }
 
   private String safeId(String id) {
