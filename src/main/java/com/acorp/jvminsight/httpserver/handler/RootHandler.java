@@ -72,6 +72,8 @@ public final class RootHandler implements HttpHandler {
     JsonResponse.ok(exchange, response);
 
     LOGGER.debug("Root endpoint served successfully.");
+  }
+
   private ShardMetaData currentShard(PodInfo podInfo, int shardCount) {
     String shardKey = podInfo.getNamespace() + "/" + podInfo.getName();
     try {
