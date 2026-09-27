@@ -1,7 +1,7 @@
 package com.acorp.jvminsight.notification;
 
 import com.acorp.jvminsight.config.ConfigLoader;
-import com.acorp.jvminsight.container.PodInfo;
+import com.acorp.jvminsight.container.dto.PodInfo;
 import com.acorp.jvminsight.container.PodInfoProvider;
 import com.acorp.jvminsight.notification.dto.SavedEvidence;
 import com.acorp.jvminsight.notification.dto.SavedNotification;

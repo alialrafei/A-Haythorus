@@ -75,7 +75,7 @@ public final class ClusterNotificationService {
                                 peer, namespace, pod, pid, notificationId);
                           } catch (Exception ex) {
                             LOGGER.warn("Failed to fetch evidence from peer {}.", peer, ex);
-                            return List.of();
+                            return null;
                           }
                         }))
             .toList();
