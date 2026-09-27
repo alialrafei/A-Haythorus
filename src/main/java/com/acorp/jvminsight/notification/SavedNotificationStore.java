@@ -98,6 +98,9 @@ public final class SavedNotificationStore {
     SavedEvidence evidence =
         new SavedEvidence(
             notificationId,
+            namespace,
+            pod,
+            pid,
             timestamp,
             message,
             payload == null ? null : mapper.valueToTree(payload));
@@ -114,7 +117,11 @@ public final class SavedNotificationStore {
 
     String key =
         EVIDENCE_PREFIX
-            + safeId(evidence.getNotificationId())
+            + safeId(evidence.getNamespace())
+            + "_"
+            + safeId(evidence.getPod())
+            + "_"
+            + evidence.getPid()
             + "/"
             + evidence.getTimestamp().toEpochMilli()
             + ".json";
