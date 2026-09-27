@@ -10,6 +10,8 @@ import com.acorp.jvminsight.persistence.PersistenceStore;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.Recommendation;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -50,6 +52,7 @@ public final class NotificationService {
   private final int maxInMemoryNotifications;
   private final int maxPendingEvidence;
   private final long flushIntervalSeconds;
+  private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
   private final int retentionDays;
 
   private volatile SavedNotificationStore persistentStore;
@@ -231,7 +234,7 @@ public final class NotificationService {
                 snapshot.getPid(),
                 timestamp,
                 message,
-                payload == null ? null : new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(payload));
+                payload == null ? null : objectMapper.valueToTree(payload));
 
         if (pendingEvidence.size() >= maxPendingEvidence) {
           pendingEvidence.pollFirst();
