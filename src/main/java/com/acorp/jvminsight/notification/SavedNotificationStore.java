@@ -8,7 +8,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 public final class SavedNotificationStore {
 
@@ -44,29 +43,6 @@ public final class SavedNotificationStore {
               }
             })
         .toList();
-  }
-
-  public Optional<SavedNotification> getNotification(String id) throws IOException {
-    if (id == null || id.isBlank()) {
-      return Optional.empty();
-    }
-
-    Optional<byte[]> data = store.list(NOTIFICATION_PREFIX).stream()
-        .filter(key -> key.endsWith("_" + safeId(id) + ".json"))
-        .findFirst()
-        .flatMap(key -> {
-          try {
-            return store.read(key);
-          } catch (IOException e) {
-            throw new PersistenceReadException(e);
-          }
-        });
-
-    if (data.isEmpty()) {
-      return Optional.empty();
-    }
-
-    return Optional.of(mapper.readValue(data.get(), SavedNotification.class));
   }
 
   public void recordEvidence(
