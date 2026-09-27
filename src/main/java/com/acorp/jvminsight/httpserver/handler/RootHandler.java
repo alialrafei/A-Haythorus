@@ -56,6 +56,12 @@ public final class RootHandler implements HttpHandler {
     sharding.put("shardCount", shardingEnabled ? shardCount : 1);
     response.put("sharding", sharding);
 
+    Map<String, Object> persistence = new LinkedHashMap<>();
+    persistence.put("enabled", ConfigLoader.getBoolean("persistence.enabled", false));
+    persistence.put("type", ConfigLoader.get("persistence.type", "filesystem"));
+    persistence.put("path", ConfigLoader.get("persistence.path", "/data/ahaythorus"));
+    response.put("persistence", persistence);
+
     JsonResponse.ok(exchange, response);
 
     LOGGER.debug("Root endpoint served successfully.");
