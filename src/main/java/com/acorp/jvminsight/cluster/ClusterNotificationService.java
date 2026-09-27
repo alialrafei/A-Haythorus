@@ -55,7 +55,9 @@ public final class ClusterNotificationService {
   public List<com.acorp.jvminsight.notification.dto.SavedEvidence> getEvidence(
       Integer requestedShard, String namespace, String pod, long pid, String notificationId) {
     List<com.acorp.jvminsight.notification.dto.SavedEvidence> evidence =
-        new ArrayList<>(NotificationService.getInstance().getEvidence(namespace, pod, pid, notificationId));
+        requestedShard == null
+            ? new ArrayList<>(NotificationService.getInstance().getEvidence(namespace, pod, pid, notificationId))
+            : new ArrayList<>();
     List<URI> peers;
     try {
       peers = discovery.discover(requestedShard);
