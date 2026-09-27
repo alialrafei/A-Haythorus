@@ -63,8 +63,7 @@ public final class NotificationService {
           timestamp,
           Map.of(
               "severity", "CRITICAL",
-              "threadIds", snapshot.getDeadlocks(),
-              "threads", snapshot.getThreadsInfos()));
+              "threadIds", snapshot.getDeadlocks()));
     }
 
     if (delta.getLeakSeverity() != null
@@ -95,26 +94,18 @@ public final class NotificationService {
                     ? recommendation.getRecommendation()
                     : recommendation.getTitle();
 
-        record(
-            code,
-            snapshot,
-            message,
-            timestamp,
-            Map.of(
-                "severity",
-                recommendation.getSeverity() == null ? "UNKNOWN" : recommendation.getSeverity().name(),
-                "confidence",
-                recommendation.getConfidence(),
-                "title",
-                recommendation.getTitle(),
-                "diagnosis",
-                recommendation.getDiagnosis(),
-                "probableCause",
-                recommendation.getProbableCause(),
-                "recommendation",
-                recommendation.getRecommendation(),
-                "evidence",
-                safeList(recommendation.getEvidence())));
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put(
+            "severity",
+            recommendation.getSeverity() == null ? "UNKNOWN" : recommendation.getSeverity().name());
+        evidence.put("confidence", recommendation.getConfidence());
+        evidence.put("title", recommendation.getTitle());
+        evidence.put("diagnosis", recommendation.getDiagnosis());
+        evidence.put("probableCause", recommendation.getProbableCause());
+        evidence.put("recommendation", recommendation.getRecommendation());
+        evidence.put("evidence", safeList(recommendation.getEvidence()));
+
+        record(code, snapshot, message, timestamp, evidence);
       }
     }
   }
@@ -172,7 +163,8 @@ public final class NotificationService {
 
     try {
       persistentStore.saveNotification(current);
-      persistentStore.recordEvidence(id, message, timestamp, payload);
+      persistentStore.recordEvidence(
+          pod.getNamespace(), pod.getName(), snapshot.getPid(), id, message, timestamp, payload);
     } catch (IOException ex) {
       LOGGER.warn("Failed persisting notification {} for pid={}.", id, snapshot.getPid(), ex);
     }
@@ -197,12 +189,15 @@ public final class NotificationService {
   private String notificationKey(SavedNotification notification) {
     return notificationKey(
         notification.getId(),
-        new PodInfo(
-            notification.getPod(),
-            notification.getNamespace(),
-            "",
-            ""),
+        podInfo(notification),
         notification.getPid());
+  }
+
+  private PodInfo podInfo(SavedNotification notification) {
+    PodInfo pod = new PodInfo();
+    pod.setName(notification.getPod());
+    pod.setNamespace(notification.getNamespace());
+    return pod;
   }
 
   private String notificationKey(String id, PodInfo pod, long pid) {
