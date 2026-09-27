@@ -9,9 +9,6 @@ import com.acorp.jvminsight.snapshotcollection.JvmDataStore;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -59,7 +56,7 @@ public final class RootHandler implements HttpHandler {
     sharding.put("enabled", shardingEnabled);
     sharding.put("shardCount", shardingEnabled ? shardCount : 1);
     if (shardingEnabled) {
-      sharding.put("currentShard", currentShard(podInfo, shardCount));
+      sharding.put("currentShard", podInfo.getShard());
     }
     response.put("sharding", sharding);
 
@@ -74,18 +71,4 @@ public final class RootHandler implements HttpHandler {
     LOGGER.debug("Root endpoint served successfully.");
   }
 
-  private ShardMetaData currentShard(PodInfo podInfo, int shardCount) {
-    String shardKey = podInfo.getNamespace() + "/" + podInfo.getName();
-    try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256")
-              .digest(shardKey.getBytes(StandardCharsets.UTF_8));
-      BigInteger hash64 = new BigInteger(1, java.util.Arrays.copyOf(digest, Long.BYTES));
-      int shardId = hash64.mod(BigInteger.valueOf(shardCount)).intValue();
-      String shardName = podInfo.getNamespace() + "/" + (podInfo.getApp() == null ? "<unknown>" : podInfo.getApp());
-      return new ShardMetaData(shardId, shardName);
-    } catch (java.security.NoSuchAlgorithmException ex) {
-      throw new IllegalStateException("SHA-256 is unavailable in this JVM.", ex);
-    }
-  }
 }
