@@ -217,7 +217,7 @@ public final class NotificationService {
   }
 
   private String notificationKey(String id, PodInfo pod, long pid) {
-    return pod.namespace() + "/" + pod.name() + ":" + pid + ":" + id;
+    return pod.getNamespace() + "/" + pod.getName() + ":" + pid + ":" + id;
   }
 
   private Instant latest(List<Instant> instances) {
