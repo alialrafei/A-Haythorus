@@ -46,7 +46,10 @@ public final class ConfigLoader {
           Map.entry("pod.namespace", "POD_NAMESPACE"),
           Map.entry("pod.node", "NODE_NAME"),
           Map.entry("pod.ip", "POD_IP"),
-          Map.entry("pod.app", "APP_NAME"));
+          Map.entry("pod.app", "APP_NAME"),
+          Map.entry("persistence.enabled", "AH_PERSISTENCE_ENABLED"),
+          Map.entry("persistence.type", "AH_PERSISTENCE_TYPE"),
+          Map.entry("persistence.path", "AH_PERSISTENCE_PATH"));
 
   private ConfigLoader() {}
 
@@ -64,6 +67,17 @@ public final class ConfigLoader {
   public static String get(String key, String defaultValue) {
     String value = get(key);
     return value == null || value.isBlank() ? defaultValue : value;
+  }
+
+  public static boolean getBoolean(String key, boolean defaultValue) {
+    String value = get(key);
+    if (value == null || value.isBlank()) return defaultValue;
+    return switch (value.trim().toLowerCase()) {
+      case "true", "1", "yes", "on" -> true;
+      case "false", "0", "no", "off" -> false;
+      default -> throw new IllegalStateException(
+          "Configuration '" + key + "' must be boolean but was '" + value + "'");
+    };
   }
 
   public static int getInt(String key, int defaultValue) {
