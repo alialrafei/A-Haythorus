@@ -51,6 +51,19 @@ public final class SavedNotificationStore {
         mapper.writeValueAsBytes(notification));
   }
 
+  public List<SavedNotification> getNotifications() throws IOException {
+    return store.list(NOTIFICATION_PREFIX).stream()
+        .map(
+            key -> {
+              try {
+                return mapper.readValue(store.read(key).orElseThrow(), SavedNotification.class);
+              } catch (IOException e) {
+                throw new PersistenceReadException(e);
+              }
+            })
+        .toList();
+  }
+
   public Optional<SavedNotification> getNotification(String id) throws IOException {
     if (id == null || id.isBlank()) {
       return Optional.empty();
@@ -63,6 +76,17 @@ public final class SavedNotificationStore {
     }
 
     return Optional.of(mapper.readValue(data.get(), SavedNotification.class));
+  }
+
+  public void recordEvidence(
+      String notificationId, String message, Instant timestamp, Object payload) throws IOException {
+    SavedEvidence evidence =
+        new SavedEvidence(
+            notificationId,
+            timestamp,
+            message,
+            payload == null ? null : mapper.valueToTree(payload));
+    saveEvidence(evidence);
   }
 
   public void saveEvidence(SavedEvidence evidence) throws IOException {
