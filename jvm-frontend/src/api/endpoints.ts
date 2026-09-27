@@ -5,6 +5,8 @@ export const API = {
   cluster: '/api/v1/cluster',
   jvms: '/api/v1/jvms',
   analysisMethodology: '/api/v1/analysis/methodology',
+  notifications: '/api/v1/notifications',
+  notificationEvidence: (id: string) => `/api/v1/notifications/${encodeURIComponent(id)}/evidence`,
 
   jvm: (pid: number) => `/api/v1/jvms/${pid}`,
   memory: (pid: number) => `/api/v1/jvms/${pid}/memory`,

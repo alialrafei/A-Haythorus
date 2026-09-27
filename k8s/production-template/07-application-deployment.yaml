@@ -59,6 +59,8 @@ spec:
           volumeMounts:
             - name: shared-tmp
               mountPath: /tmp
+            - name: ahaythorus-data
+              mountPath: ${PERSISTENCE_PATH}
           envFrom:
             - configMapRef:
                 name: ${AH_CLUSTER_CONFIG_NAME}
@@ -125,3 +127,7 @@ spec:
         # Both containers see the JVM's local attach socket/files.
         - name: shared-tmp
           emptyDir: {}
+        # Use an RWX-capable PVC when multiple replicas share one persistence volume.
+        - name: ahaythorus-data
+          persistentVolumeClaim:
+            claimName: ${AH_PERSISTENCE_PVC_NAME}

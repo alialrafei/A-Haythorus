@@ -3,6 +3,7 @@ package com.acorp.jvminsight.snapshotcollection.service;
 import com.acorp.jvminsight.attach.JvmAttachClient;
 import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.memory.GcCollector;
+import com.acorp.jvminsight.notification.NotificationService;
 import com.acorp.jvminsight.memory.GcSnapshot;
 import com.acorp.jvminsight.memory.MemoryCollector;
 import com.acorp.jvminsight.memory.MemoryPoolCollector;
@@ -122,6 +123,7 @@ public class JvmCollector implements Runnable {
     JvmDeltaSnapshot delta = DeltaEngine.compute(retainedHistory, previousSnapshot, snapshot);
     snapshot.setDelta(delta);
     JvmDataStore.put(pid, snapshot);
+    NotificationService.getInstance().record(snapshot);
     lastStoredSnapshot = snapshot;
     LOGGER.debug(
         "Snapshot stored for pid={} historySamples={} leakEvidence={} leakConfidence={}",

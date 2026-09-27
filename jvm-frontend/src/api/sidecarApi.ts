@@ -11,6 +11,8 @@ import type {
   MemoryPoolSnapshot,
   MemorySnapshot,
   RootMetadata,
+  SavedNotification,
+  SavedEvidence,
   ThreadCountResponse,
   ThreadDumpSnapshot,
   TimestampResponse,
@@ -52,6 +54,25 @@ export const sidecarApi = {
 
   getAnalysisMethodology(signal?: AbortSignal) {
     return getJson<AnalysisMethodology>(API.analysisMethodology, signal);
+  },
+
+  getNotifications(shard?: number | null, signal?: AbortSignal) {
+    return getJson<SavedNotification[]>(withShard(API.notifications, shard), signal);
+  },
+
+  getNotificationEvidence(
+    id: string,
+    namespace: string,
+    pod: string,
+    pid: number,
+    shard?: number | null,
+    signal?: AbortSignal,
+  ) {
+    const base = API.notificationEvidence(id);
+    const query =
+      `?namespace=${encodeURIComponent(namespace)}&pod=${encodeURIComponent(pod)}&pid=${encodeURIComponent(pid)}`
+      + (shard == null ? '' : `&shard=${encodeURIComponent(shard)}`);
+    return getJson<SavedEvidence[]>(base + query, signal);
   },
 
   async getSnapshots(

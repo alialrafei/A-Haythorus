@@ -1,8 +1,8 @@
 package com.acorp.jvminsight.notification.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,13 +10,13 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SavedEvidence implements Serializable {
-  private String notificationHash;
-  private String notificationId;
+public class SavedNotification implements Serializable {
+  private String id;
+  private String hash;
+  private String message;
+  private String severity;
+  private List<Instant> instances;
   private String namespace;
   private String pod;
   private long pid;
-  private Instant timestamp;
-  private String message;
-  private JsonNode payload;
 }

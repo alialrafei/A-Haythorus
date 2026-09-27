@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${AH_PERSISTENCE_PVC_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  # RWX is useful when several sidecar replicas share one persistence claim.
+  # Replace with the access mode supported by the target storage class if each
+  # replica gets its own dedicated volume.
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: ${PERSISTENCE_STORAGE_SIZE}
+  storageClassName: ${PERSISTENCE_STORAGE_CLASS}

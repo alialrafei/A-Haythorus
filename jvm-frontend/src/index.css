@@ -1049,7 +1049,7 @@ button {
 
 .problem-row {
   display: grid;
-  grid-template-columns: 38px 1fr 18px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   gap: 13px;
   align-items: center;
   width: 100%;
@@ -1098,6 +1098,52 @@ button {
   margin-top: 5px;
   color: var(--text-muted);
   font-size: 9px;
+}
+
+.problem-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.problem-actions button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.problem-actions button:hover {
+  border-color: rgba(124, 108, 255, 0.26);
+  color: var(--text-primary);
+}
+
+.problem-evidence {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-soft);
+}
+
+.problem-evidence strong {
+  color: var(--text-primary);
+  font-size: 10px;
+}
+
+.problem-evidence pre {
+  max-height: 220px;
+  margin: 6px 0 0;
+  overflow: auto;
+  color: var(--text-secondary);
+  font-size: 8px;
+  white-space: pre-wrap;
 }
 
 .jvm-hero {

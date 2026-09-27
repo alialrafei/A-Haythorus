@@ -59,6 +59,48 @@ public final class SidecarClient {
     }
   }
 
+  public List<com.acorp.jvminsight.notification.dto.SavedEvidence> fetchNotificationEvidence(
+      URI sidecarUri, String namespace, String pod, long pid, String notificationId) {
+    String query =
+        "?namespace=" + java.net.URLEncoder.encode(namespace, java.nio.charset.StandardCharsets.UTF_8)
+            + "&pod=" + java.net.URLEncoder.encode(pod, java.nio.charset.StandardCharsets.UTF_8)
+            + "&pid=" + pid;
+    URI evidenceUri =
+        sidecarUri.resolve(
+            "/api/v1/notifications/" + java.net.URLEncoder.encode(notificationId, java.nio.charset.StandardCharsets.UTF_8) + "/evidence" + query);
+    try {
+      HttpResponse<String> response =
+          httpClient.send(localGet(evidenceUri), HttpResponse.BodyHandlers.ofString());
+      requireOk(sidecarUri, response);
+      return MAPPER.readValue(
+          response.body(),
+          new TypeReference<List<com.acorp.jvminsight.notification.dto.SavedEvidence>>() {});
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Peer evidence request interrupted: " + sidecarUri, ex);
+    } catch (Exception ex) {
+      throw new IllegalStateException("Failed to fetch peer evidence from " + sidecarUri, ex);
+    }
+  }
+
+  public List<com.acorp.jvminsight.notification.dto.SavedNotification> fetchNotifications(URI sidecarUri) {
+    URI notificationsUri = sidecarUri.resolve("/api/v1/notifications");
+    HttpRequest request = localGet(notificationsUri);
+    try {
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      requireOk(sidecarUri, response);
+      return MAPPER.readValue(
+          response.body(),
+          new TypeReference<List<com.acorp.jvminsight.notification.dto.SavedNotification>>() {});
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Peer notification request interrupted: " + sidecarUri, ex);
+    } catch (Exception ex) {
+      throw new IllegalStateException("Failed to fetch peer notifications from " + sidecarUri, ex);
+    }
+  }
+
   public List<JvmHistoryResponse> fetchHistories(URI sidecarUri) {
     URI historyUri = sidecarUri.resolve("/api/v1/history");
     HttpRequest request = localGet(historyUri);

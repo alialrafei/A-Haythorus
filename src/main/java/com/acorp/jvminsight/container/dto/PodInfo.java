@@ -1,42 +1,25 @@
 package com.acorp.jvminsight.container.dto;
 
+import com.acorp.jvminsight.cluster.shard.ShardMetaData;
+
 public class PodInfo {
   public String name;
   public String namespace;
   public String node;
   public String app;
+  public ShardMetaData shard;
 
   public PodInfo() {}
 
-  public void setName(String name) {
-    this.name = name;
-  }
+  public void setName(String name) { this.name = name; }
+  public void setNamespace(String namespace) { this.namespace = namespace; }
+  public void setNode(String node) { this.node = node; }
+  public void setApp(String app) { this.app = app; }
+  public void setShard(ShardMetaData shard) { this.shard = shard; }
 
-  public void setNamespace(String namespace) {
-    this.namespace = namespace;
-  }
-
-  public void setNode(String node) {
-    this.node = node;
-  }
-
-  public void setApp(String app) {
-    this.app = app;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public String getNamespace() {
-    return namespace;
-  }
-
-  public String getNode() {
-    return node;
-  }
-
-  public String getApp() {
-    return app;
-  }
+  public String getName() { return name; }
+  public String getNamespace() { return namespace; }
+  public String getNode() { return node; }
+  public String getApp() { return app; }
+  public ShardMetaData getShard() { return shard; }
 }

@@ -53,6 +53,13 @@ MAX_CONCURRENT_REQUESTS
 CONNECT_TIMEOUT_MS
 REQUEST_TIMEOUT_MS
 
+PERSISTENCE_ENABLED
+PERSISTENCE_TYPE
+PERSISTENCE_PATH
+AH_PERSISTENCE_PVC_NAME
+PERSISTENCE_STORAGE_SIZE
+PERSISTENCE_STORAGE_CLASS
+
 INGRESS_NAMESPACE_LABEL_KEY
 INGRESS_NAMESPACE_LABEL_VALUE
 KUBERNETES_API_NAMESPACE_LABEL_KEY
@@ -146,3 +153,20 @@ The following resources are standard Kubernetes:
 - Ingress
 
 Only the external ingress/authentication implementation should vary by platform.
+
+
+## Notification and evidence persistence
+
+Persistence is disabled by default:
+
+```text
+PERSISTENCE_ENABLED=false
+PERSISTENCE_TYPE=filesystem
+PERSISTENCE_PATH=/data/ahaythorus
+```
+
+When enabled, the sidecar writes notification history and diagnostic evidence under the configured filesystem path. The filesystem backend is suitable for a mounted PVC or shared volume; the sidecar UID must have write access to the mount.
+
+For a Deployment with multiple replicas, use a storage class/PVC that supports the required access mode (typically RWX for one shared claim). Each persisted record is additionally namespaced by Kubernetes namespace, Pod, JVM PID, and notification code, so findings from different JVMs do not overwrite one another.
+
+The storage abstraction is intentionally separate from notification generation so S3/GCS backends can be added later without changing the notification or UI layers.

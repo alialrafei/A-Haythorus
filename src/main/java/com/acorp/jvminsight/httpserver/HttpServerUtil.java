@@ -4,6 +4,7 @@ import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.httpserver.constant.RouteConstants;
 import com.acorp.jvminsight.httpserver.handler.AnalysisMethodologyHandler;
 import com.acorp.jvminsight.httpserver.handler.RootHandler;
+import com.acorp.jvminsight.httpserver.handler.NotificationHandler;
 import com.acorp.jvminsight.httpserver.handler.SnapshotHandler;
 import com.acorp.jvminsight.httpserver.handler.StaticUiHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -33,6 +34,7 @@ public final class HttpServerUtil {
       server.createContext(RouteConstants.HISTORY, snapshotHandler);
       server.createContext(RouteConstants.JVMS, snapshotHandler);
       server.createContext(RouteConstants.ANALYSIS_METHODOLOGY, new AnalysisMethodologyHandler());
+      server.createContext(RouteConstants.NOTIFICATIONS, new NotificationHandler());
       server.createContext(RouteConstants.UI, new StaticUiHandler(uiDirectory));
 
       // Keep ROOT last conceptually. HttpServer still chooses the longest matching context.

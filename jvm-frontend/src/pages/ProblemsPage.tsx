@@ -1,156 +1,92 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from '@blueprintjs/core';
 import { useMonitoring } from '../context/MonitoringContext';
 import { EmptyState } from '../components/common/EmptyState';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { sidecarApi } from '../api/sidecarApi';
+import type { SavedEvidence, SavedNotification } from '../models/snapshot';
 import type { HealthLevel } from '../utils/health';
-import {
-  getJvmHealth,
-  healthRank,
-  normalizeSeverity,
-} from '../utils/health';
+import { normalizeSeverity } from '../utils/health';
+import { toEpochMillis } from '../utils/format';
 
-interface Problem {
-  key: string;
-  jvmKey: string;
-  level: HealthLevel;
-  title: string;
-  description: string;
-  pod: string;
-  namespace: string;
-  pid: number;
-}
+export function ProblemsPage({ onOpenJvm }: { onOpenJvm: (key: string) => void; }) {
+  const { selectedShard, sharding } = useMonitoring();
+  const [notifications, setNotifications] = useState<SavedNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<SavedEvidence[]>([]);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
 
-export function ProblemsPage({
-  onOpenJvm,
-}: {
-  onOpenJvm: (key: string) => void;
-}) {
-  const { jvms } = useMonitoring();
-
-  const problems = useMemo<Problem[]>(() => {
-    const result: Problem[] = [];
-
-    jvms.forEach((node) => {
-      const health = getJvmHealth(node.snapshot);
-
-      if ((node.snapshot.deadlocks?.length ?? 0) > 0) {
-        result.push({
-          key: `${node.key}:deadlock`,
-          jvmKey: node.key,
-          level: 'CRITICAL',
-          title: `${node.snapshot.deadlocks?.length ?? 0} deadlocked threads`,
-          description:
-            'The JVM reports a live monitor/synchronizer deadlock.',
-          pod: node.pod.name,
-          namespace: node.pod.namespace,
-          pid: node.snapshot.pid,
-        });
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const shard = sharding.enabled ? selectedShard : null;
+        setNotifications(await sidecarApi.getNotifications(shard, controller.signal));
+      } catch (cause) {
+        if (controller.signal.aborted) return;
+        setError(cause instanceof Error ? cause.message : 'Unable to load persisted notifications.');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
+    };
+    void load();
+    return () => controller.abort();
+  }, [selectedShard, sharding.enabled]);
 
-      if (healthRank(health) >= healthRank('MEDIUM')) {
-        result.push({
-          key: `${node.key}:health`,
-          jvmKey: node.key,
-          level: health,
-          title: `${health.toLowerCase()} JVM risk`,
-          description:
-            node.snapshot.delta?.leakReasons?.[0] ??
-            'The JVM analysis engine reports elevated runtime risk.',
-          pod: node.pod.name,
-          namespace: node.pod.namespace,
-          pid: node.snapshot.pid,
-        });
-      }
+  const toggleEvidence = async (notification: SavedNotification) => {
+    const key = notificationKey(notification);
+    if (expandedKey === key) { setExpandedKey(null); return; }
+    setExpandedKey(key);
+    setEvidenceLoading(true);
+    try {
+      setEvidence(await sidecarApi.getNotificationEvidence(notification.hash, notification.namespace, notification.pod, notification.pid, sharding.enabled ? selectedShard : null));
+    } catch {
+      setEvidence([]);
+    } finally {
+      setEvidenceLoading(false);
+    }
+  };
 
-      node.snapshot.delta?.recommendations?.forEach(
-        (recommendation, index) => {
-          result.push({
-            key: `${node.key}:recommendation:${index}`,
-            jvmKey: node.key,
-            level: normalizeSeverity(recommendation.severity),
-            title: recommendation.title,
-            description:
-              recommendation.probableCause ??
-              recommendation.recommendation ??
-              'Runtime analysis recommendation.',
-            pod: node.pod.name,
-            namespace: node.pod.namespace,
-            pid: node.snapshot.pid,
-          });
-        },
-      );
-    });
-
-    return result.sort(
-      (left, right) =>
-        healthRank(right.level) - healthRank(left.level),
-    );
-  }, [jvms]);
-
-  if (problems.length === 0) {
-    return (
-      <EmptyState
-        icon="tick-circle"
-        title="No active findings"
-        description="The current JVM snapshots do not contain deadlocks or analysis recommendations."
-      />
-    );
-  }
+  if (loading) return <EmptyState icon="time" title="Loading findings" description="Loading recorded JVM findings." />;
+  if (error) return <EmptyState icon="error" title="Unable to load findings" description={error} />;
+  if (notifications.length === 0) return <EmptyState icon="tick-circle" title="No recorded findings" description="No notifications have been generated for the selected shard." />;
 
   return (
     <div className="page-stack">
       <section className="toolbar-panel">
-        <div>
-          <span className="eyebrow">Analysis</span>
-          <h2>Problems & recommendations</h2>
-          <p>
-            Findings produced by the current JVM delta and rule engine.
-          </p>
-        </div>
-
-        <div className="problem-count">
-          {problems.length} findings
-        </div>
+        <div><span className="eyebrow">Notifications</span><h2>Problems & findings</h2><p>Findings produced by the JVM analysis engine; optional persistence keeps them across restarts.</p></div>
+        <div className="problem-count">{notifications.length} notifications</div>
       </section>
-
       <section className="problem-list">
-        {problems.map((problem) => (
-          <button
-            key={problem.key}
-            className="problem-row"
-            onClick={() => onOpenJvm(problem.jvmKey)}
-          >
-            <div className="problem-icon">
-              <Icon
-                icon={
-                  problem.level === 'CRITICAL' ||
-                  problem.level === 'HIGH'
-                    ? 'warning-sign'
-                    : 'lightbulb'
-                }
-                size={18}
-              />
-            </div>
-
-            <div className="problem-copy">
-              <div className="problem-title-row">
-                <strong>{problem.title}</strong>
-                <StatusBadge level={problem.level} compact />
+        {notifications.map((notification) => {
+          const level: HealthLevel = normalizeSeverity(notification.severity);
+          const key = notificationKey(notification);
+          const latest = notification.instances?.length ? toEpochMillis(notification.instances[notification.instances.length - 1]) : null;
+          return (
+            <article key={key} className="problem-row">
+              <div className="problem-icon"><Icon icon={level === 'CRITICAL' || level === 'HIGH' ? 'warning-sign' : 'lightbulb'} size={18} /></div>
+              <div className="problem-copy">
+                <div className="problem-title-row"><strong>{notification.message}</strong><StatusBadge level={level} compact /></div>
+                <p>{notification.id}</p>
+                <span>{notification.namespace}/{notification.pod} · JVM {notification.pid} · {notification.instances?.length ?? 0} occurrence(s){latest != null ? ' · ' + new Date(latest).toLocaleString() : ''}</span>
+                {expandedKey === key && <div className="problem-evidence">{evidenceLoading ? <span>Loading evidence…</span> : evidence.length === 0 ? <span>No saved evidence available.</span> : evidence.map((item) => <div key={toEpochMillis(item.timestamp)}><strong>{item.message}</strong><pre>{JSON.stringify(item.payload, null, 2)}</pre></div>)}</div>}
               </div>
-
-              <p>{problem.description}</p>
-
-              <span>
-                {problem.namespace}/{problem.pod} · JVM{' '}
-                {problem.pid}
-              </span>
-            </div>
-
-            <Icon icon="chevron-right" size={16} />
-          </button>
-        ))}
+              <div className="problem-actions">
+                <button type="button" className="button button-secondary" onClick={() => void toggleEvidence(notification)}>{expandedKey === key ? 'Hide evidence' : 'Evidence'}</button>
+                <button type="button" className="button button-secondary" onClick={() => onOpenJvm(notification.namespace + '/' + notification.pod + ':' + notification.pid)}><Icon icon="chevron-right" size={16} /></button>
+              </div>
+            </article>
+          );
+        })}
       </section>
     </div>
   );
+}
+
+function notificationKey(notification: SavedNotification): string {
+  return notification.namespace + '/' + notification.pod + ':' + notification.pid + ':' + notification.hash;
 }
