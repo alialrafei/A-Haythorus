@@ -5,6 +5,12 @@ export interface PodInfo {
   namespace: string;
   node: string;
   app: string;
+  shard?: ShardMetaData | null;
+}
+
+export interface ShardMetaData {
+  shardId: number;
+  shardName: string;
 }
 
 export interface RootMetadata {
@@ -20,6 +26,7 @@ export interface RootMetadata {
 export interface ShardingCapabilities {
   enabled: boolean;
   shardCount: number;
+  currentShard?: ShardMetaData | null;
 }
 
 export interface PersistenceCapabilities {
@@ -354,6 +361,7 @@ export interface JvmHistoryPoint {
 
 export interface SavedNotification {
   id: string;
+  hash: string;
   message: string;
   instances: TimestampValue[];
   namespace: string;
@@ -362,6 +370,7 @@ export interface SavedNotification {
 }
 
 export interface SavedEvidence {
+  notificationHash: string;
   notificationId: string;
   namespace: string;
   pod: string;
