@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SavedEvidence implements Serializable {
+  private String notificationHash;
   private String notificationId;
   private String namespace;
   private String pod;
