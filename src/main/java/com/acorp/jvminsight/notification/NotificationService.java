@@ -61,6 +61,7 @@ public final class NotificationService {
           snapshot,
           "Deadlock detected: " + snapshot.getDeadlocks().length + " deadlocked thread(s).",
           timestamp,
+          "CRITICAL",
           Map.of(
               "severity", "CRITICAL",
               "threadIds", snapshot.getDeadlocks()));
@@ -73,6 +74,7 @@ public final class NotificationService {
           snapshot,
           "JVM risk is " + delta.getLeakSeverity().name().toLowerCase() + ".",
           timestamp,
+          delta.getLeakSeverity().name(),
           Map.of(
               "severity", delta.getLeakSeverity().name(),
               "leakScore", delta.getLeakScore(),
@@ -105,7 +107,13 @@ public final class NotificationService {
         evidence.put("recommendation", recommendation.getRecommendation());
         evidence.put("evidence", safeList(recommendation.getEvidence()));
 
-        record(code, snapshot, message, timestamp, evidence);
+        record(
+            code,
+            snapshot,
+            message,
+            timestamp,
+            recommendation.getSeverity() == null ? "UNKNOWN" : recommendation.getSeverity().name(),
+            evidence);
       }
     }
   }
@@ -134,7 +142,12 @@ public final class NotificationService {
   }
 
   private void record(
-      String id, JvmSnapshot snapshot, String message, Instant timestamp, Object payload) {
+      String id,
+      JvmSnapshot snapshot,
+      String message,
+      Instant timestamp,
+      String severity,
+      Object payload) {
     PodInfo pod = PodInfoProvider.getPodInfo();
     SavedNotification current =
         notifications.compute(
@@ -145,12 +158,14 @@ public final class NotificationService {
                       ? new SavedNotification(
                           id,
                           message,
+                          severity,
                           new ArrayList<>(),
                           pod.namespace(),
                           pod.name(),
                           snapshot.getPid())
                       : existing;
               notification.setMessage(message);
+              notification.setSeverity(severity);
               if (notification.getInstances() == null) {
                 notification.setInstances(new ArrayList<>());
               }
