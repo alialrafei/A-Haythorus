@@ -56,15 +56,18 @@ public final class NotificationService {
         : Instant.now();
 
     if (snapshot.getDeadlocks() != null && snapshot.getDeadlocks().length > 0) {
+      Map<String, Object> deadlockEvidence = new LinkedHashMap<>();
+      deadlockEvidence.put("severity", "CRITICAL");
+      deadlockEvidence.put("threadIds", snapshot.getDeadlocks());
+      deadlockEvidence.put("threads", snapshot.getThreadsInfos());
+
       record(
           "deadlock",
           snapshot,
           "Deadlock detected: " + snapshot.getDeadlocks().length + " deadlocked thread(s).",
           timestamp,
           "CRITICAL",
-          Map.of(
-              "severity", "CRITICAL",
-              "threadIds", snapshot.getDeadlocks()));
+          deadlockEvidence);
     }
 
     if (delta.getLeakSeverity() != null
