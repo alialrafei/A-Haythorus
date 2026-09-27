@@ -51,7 +51,14 @@ public final class NotificationHandler implements HttpHandler {
         JsonResponse.badRequest(exchange, "Invalid pid: " + pidValue);
         return;
       }
-      JsonResponse.ok(exchange, notificationService.getEvidence(namespace, pod, pid, id));
+      boolean local = ClusterHeaders.LOCAL.equalsIgnoreCase(
+          exchange.getRequestHeaders().getFirst(ClusterHeaders.SCOPE));
+      Integer shard = parseShard(exchange);
+      JsonResponse.ok(
+          exchange,
+          local
+              ? notificationService.getEvidence(namespace, pod, pid, id)
+              : clusterNotificationService.getEvidence(shard, namespace, pod, pid, id));
       return;
     }
 
