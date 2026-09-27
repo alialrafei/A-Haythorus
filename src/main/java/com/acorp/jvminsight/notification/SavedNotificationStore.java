@@ -8,6 +8,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
 
 public final class SavedNotificationStore {
 
@@ -82,6 +83,8 @@ public final class SavedNotificationStore {
             + evidence.getPid()
             + "/"
             + evidence.getTimestamp().toEpochMilli()
+            + "_"
+            + safeId(evidence.getNotificationId())
             + ".json";
 
     store.save(key, mapper.writeValueAsBytes(evidence));
@@ -110,6 +113,37 @@ public final class SavedNotificationStore {
         .filter(evidence -> notificationId.equals(evidence.getNotificationId()))
         .toList();
   }
+
+  public void deleteExpired(Instant cutoff) throws IOException {
+    List<String> notificationKeys = store.list(NOTIFICATION_PREFIX);
+    for (String key : notificationKeys) {
+      OptionalRecord record = readNotification(key);
+      if (record != null && !record.latest().isAfter(cutoff)) {
+        store.delete(key);
+      }
+    }
+
+    List<String> evidenceKeys = store.list(EVIDENCE_PREFIX);
+    for (String key : evidenceKeys) {
+      SavedEvidence evidence =
+          mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
+      if (!evidence.getTimestamp().isAfter(cutoff)) {
+        store.delete(key);
+      }
+    }
+  }
+
+  private OptionalRecord readNotification(String key) throws IOException {
+    byte[] data = store.read(key).orElse(null);
+    if (data == null) return null;
+    SavedNotification notification = mapper.readValue(data, SavedNotification.class);
+    Instant latest = notification.getInstances() == null || notification.getInstances().isEmpty()
+        ? Instant.EPOCH
+        : notification.getInstances().stream().max(Instant::compareTo).orElse(Instant.EPOCH);
+    return new OptionalRecord(latest);
+  }
+
+  private record OptionalRecord(Instant latest) {}
 
   private String notificationKey(SavedNotification notification) {
     return NOTIFICATION_PREFIX
