@@ -56,7 +56,7 @@ export function TopBar({
             >
               {Array.from({ length: shardCount }, (_, shard) => (
                 <option key={shard} value={shard}>
-                  {shardLabels?.[shard] ?? 'No pods available'}
+                  {`Shard ${shard} — ${shardLabels?.[shard] ?? 'No pods available'}`}
                 </option>
               ))}
             </select>
