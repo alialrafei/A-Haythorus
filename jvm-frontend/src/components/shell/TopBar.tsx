@@ -56,7 +56,7 @@ export function TopBar({
             >
               {Array.from({ length: shardCount }, (_, shard) => (
                 <option key={shard} value={shard}>
-                  {shardLabels?.[shard] ?? `Shard ${shard}`}
+                  {shardLabels?.[shard] ?? `Partition ${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[shard]}`}
                 </option>
               ))}
             </select>
