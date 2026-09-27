@@ -188,6 +188,22 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
         };
         setSharding(normalized);
         setSelectedShardState((current) => Math.min(current, normalized.shardCount - 1));
+
+        if (normalized.enabled) {
+          const discoveredLabels: Record<number, string> = {};
+          for (let shard = 0; shard < normalized.shardCount; shard += 1) {
+            const shardSnapshots = await sidecarApi.getSnapshots(shard);
+            shardSnapshots.forEach((podSnapshot) => {
+              const shardMeta = podSnapshot.pod.shard;
+              if (shardMeta) {
+                discoveredLabels[shardMeta.shardId] =
+                  shardMeta.shardName + ' · ' + podSnapshot.pod.name;
+              }
+            });
+          }
+          setShardLabels(discoveredLabels);
+        }
+
         setCapabilitiesLoaded(true);
       } catch (cause) {
         if (cancelled) return;
