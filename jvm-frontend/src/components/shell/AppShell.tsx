@@ -143,14 +143,6 @@ export function AppShell() {
 
         <main
           className="page"
-          style={{
-            minHeight: 0,
-            height: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            overscrollBehavior: 'contain',
-            WebkitOverflowScrolling: 'touch',
-          }}
         >
           {monitoring.error &&
           monitoring.snapshots.length > 0 ? (
