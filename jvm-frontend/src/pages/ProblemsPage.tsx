@@ -43,7 +43,7 @@ export function ProblemsPage({ onOpenJvm }: { onOpenJvm: (key: string) => void; 
     setExpandedKey(key);
     setEvidenceLoading(true);
     try {
-      setEvidence(await sidecarApi.getNotificationEvidence(notification.id, notification.namespace, notification.pod, notification.pid, sharding.enabled ? selectedShard : null));
+      setEvidence(await sidecarApi.getNotificationEvidence(notification.hash, notification.namespace, notification.pod, notification.pid, sharding.enabled ? selectedShard : null));
     } catch {
       setEvidence([]);
     } finally {
@@ -88,5 +88,5 @@ export function ProblemsPage({ onOpenJvm }: { onOpenJvm: (key: string) => void; 
 }
 
 function notificationKey(notification: SavedNotification): string {
-  return notification.namespace + '/' + notification.pod + ':' + notification.pid + ':' + notification.id;
+  return notification.namespace + '/' + notification.pod + ':' + notification.pid + ':' + notification.hash;
 }
