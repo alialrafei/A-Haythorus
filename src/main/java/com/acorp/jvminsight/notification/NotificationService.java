@@ -200,7 +200,13 @@ public final class NotificationService {
 
     Path path = Path.of(ConfigLoader.get("persistence.path", "/data/ahaythorus"));
     LOGGER.info("Notification persistence enabled using filesystem path {}.", path);
-    return new SavedNotificationStore(new com.acorp.jvminsight.persistence.FileSystemPersistenceStore(path));
+    try {
+      return new SavedNotificationStore(
+          new com.acorp.jvminsight.persistence.FileSystemPersistenceStore(path));
+    } catch (IOException ex) {
+      throw new IllegalStateException(
+          "Unable to initialize notification persistence at " + path, ex);
+    }
   }
 
   private String notificationKey(SavedNotification notification) {
