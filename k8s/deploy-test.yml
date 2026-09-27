@@ -9,6 +9,18 @@ metadata:
   name: ahaythorus
   namespace: ahaythorus-test
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ahaythorus-persistence
+  namespace: ahaythorus-test
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -80,6 +92,8 @@ spec:
           volumeMounts:
             - name: shared-tmp
               mountPath: /tmp
+            - name: ahaythorus-persistence
+              mountPath: /data/ahaythorus
 
           env:
             - name: AH_RUNTIME_MODE
@@ -114,6 +128,30 @@ spec:
 
             - name: AH_CLUSTER_MAX_CONCURRENT_REQUESTS
               value: "8"
+
+            - name: AH_PERSISTENCE_ENABLED
+              value: "true"
+
+            - name: AH_PERSISTENCE_TYPE
+              value: filesystem
+
+            - name: AH_PERSISTENCE_PATH
+              value: /data/ahaythorus
+
+            - name: AH_NOTIFICATION_MAX_IN_MEMORY
+              value: "1000"
+
+            - name: AH_NOTIFICATION_MAX_INSTANCES_PER_NOTIFICATION
+              value: "100"
+
+            - name: AH_PERSISTENCE_MAX_PENDING_EVIDENCE
+              value: "2000"
+
+            - name: AH_PERSISTENCE_FLUSH_INTERVAL_SECONDS
+              value: "30"
+
+            - name: AH_PERSISTENCE_RETENTION_DAYS
+              value: "7"
 
             - name: AH_CLUSTER_SHARDING_ENABLED
               value: "true"
@@ -184,6 +222,9 @@ spec:
       volumes:
         - name: shared-tmp
           emptyDir: {}
+        - name: ahaythorus-persistence
+          persistentVolumeClaim:
+            claimName: ahaythorus-persistence
 
 ---
 apiVersion: v1
