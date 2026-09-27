@@ -14,11 +14,18 @@ export interface RootMetadata {
   pod: PodInfo;
   monitoredJvmCount: number;
   sharding: ShardingCapabilities;
+  persistence?: PersistenceCapabilities;
 }
 
 export interface ShardingCapabilities {
   enabled: boolean;
   shardCount: number;
+}
+
+export interface PersistenceCapabilities {
+  enabled: boolean;
+  type: string;
+  path: string;
 }
 
 export interface AggregatorSnapshot {
