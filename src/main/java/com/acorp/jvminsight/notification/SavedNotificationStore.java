@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,23 +21,6 @@ public final class SavedNotificationStore {
   public SavedNotificationStore(PersistenceStore store) {
     this.store = store;
     this.mapper = new ObjectMapper().registerModule(new JavaTimeModule());
-  }
-
-  public synchronized SavedNotification recordNotification(
-      String id, String message, Instant timestamp) throws IOException {
-    SavedNotification notification =
-        getNotification(id)
-            .orElseGet(() -> new SavedNotification(id, message, "UNKNOWN", new ArrayList<>(), "", "", 0L));
-
-    notification.setMessage(message);
-
-    if (notification.getInstances() == null) {
-      notification.setInstances(new ArrayList<>());
-    }
-
-    notification.getInstances().add(timestamp);
-    saveNotification(notification);
-    return notification;
   }
 
   public void saveNotification(SavedNotification notification) throws IOException {
@@ -150,19 +132,6 @@ public final class SavedNotificationStore {
               }
             })
         .filter(evidence -> notificationId.equals(evidence.getNotificationId()))
-        .toList();
-  }
-
-  public List<SavedEvidence> getEvidence(String notificationId) throws IOException {
-    return store.list(EVIDENCE_PREFIX).stream()
-        .map(
-            key -> {
-              try {
-                return mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
-              } catch (IOException e) {
-                throw new PersistenceReadException(e);
-              }
-            })
         .toList();
   }
 
