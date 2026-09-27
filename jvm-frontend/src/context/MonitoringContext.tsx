@@ -15,6 +15,7 @@ interface MonitoringContextValue {
   historyByJvm: Record<string, JvmHistoryPoint[]>;
   sharding: ShardingCapabilities;
   selectedShard: number;
+  shardLabels: Record<number, string>;
   setSelectedShard: (shard: number) => void;
   loading: boolean;
   refreshing: boolean;
@@ -105,6 +106,7 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
   const [sharding, setSharding] = useState<ShardingCapabilities>(DEFAULT_SHARDING);
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
   const [selectedShard, setSelectedShardState] = useState(0);
+  const [shardLabels, setShardLabels] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +153,17 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
       const shard = sharding.enabled ? selectedShard : null;
       const nextSnapshots = await sidecarApi.getSnapshots(shard);
       setSnapshots(nextSnapshots);
+      const discoveredLabels: Record<number, string> = {};
+      nextSnapshots.forEach((podSnapshot) => {
+        const shardMeta = podSnapshot.pod.shard;
+        if (shardMeta) {
+          discoveredLabels[shardMeta.shardId] =
+            shardMeta.shardName + ' · ' + podSnapshot.pod.name;
+        }
+      });
+      if (Object.keys(discoveredLabels).length > 0) {
+        setShardLabels((current) => ({ ...current, ...discoveredLabels }));
+      }
       updateHistory(nextSnapshots);
       setLastUpdated(Date.now());
       setError(null);
@@ -218,7 +231,7 @@ export function MonitoringProvider({ children }: { children: React.ReactNode }) 
       parent: podSnapshot,
     }))), [snapshots]);
 
-  const value = useMemo<MonitoringContextValue>(() => ({ snapshots, jvms, historyByJvm, sharding, selectedShard, setSelectedShard, loading, refreshing, error, lastUpdated, refresh }), [snapshots, jvms, historyByJvm, sharding, selectedShard, setSelectedShard, loading, refreshing, error, lastUpdated, refresh]);
+  const value = useMemo<MonitoringContextValue>(() => ({ snapshots, jvms, historyByJvm, sharding, selectedShard, shardLabels, setSelectedShard, loading, refreshing, error, lastUpdated, refresh }), [snapshots, jvms, historyByJvm, sharding, selectedShard, shardLabels, setSelectedShard, loading, refreshing, error, lastUpdated, refresh]);
   return <MonitoringContext.Provider value={value}>{children}</MonitoringContext.Provider>;
 }
 
