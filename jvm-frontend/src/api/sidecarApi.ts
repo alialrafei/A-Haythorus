@@ -65,11 +65,13 @@ export const sidecarApi = {
     namespace: string,
     pod: string,
     pid: number,
+    shard?: number | null,
     signal?: AbortSignal,
   ) {
     const base = API.notificationEvidence(id);
     const query =
-      `?namespace=${encodeURIComponent(namespace)}&pod=${encodeURIComponent(pod)}&pid=${encodeURIComponent(pid)}`;
+      `?namespace=${encodeURIComponent(namespace)}&pod=${encodeURIComponent(pod)}&pid=${encodeURIComponent(pid)}`
+      + (shard == null ? '' : `&shard=${encodeURIComponent(shard)}`);
     return getJson<SavedEvidence[]>(base + query, signal);
   },
 
