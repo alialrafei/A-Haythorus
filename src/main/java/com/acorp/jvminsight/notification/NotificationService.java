@@ -3,20 +3,28 @@ package com.acorp.jvminsight.notification;
 import com.acorp.jvminsight.config.ConfigLoader;
 import com.acorp.jvminsight.container.PodInfo;
 import com.acorp.jvminsight.container.PodInfoProvider;
+import com.acorp.jvminsight.notification.dto.SavedEvidence;
 import com.acorp.jvminsight.notification.dto.SavedNotification;
+import com.acorp.jvminsight.persistence.FileSystemPersistenceStore;
+import com.acorp.jvminsight.persistence.PersistenceStore;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.JvmDeltaSnapshot;
 import com.acorp.jvminsight.snapshotcollection.dto.delta.Recommendation;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,18 +34,51 @@ public final class NotificationService {
   private static final NotificationService INSTANCE = new NotificationService();
 
   private final ConcurrentMap<String, SavedNotification> notifications = new ConcurrentHashMap<>();
-  private final SavedNotificationStore persistentStore;
+  private final ConcurrentMap<String, SavedNotification> dirtyNotifications =
+      new ConcurrentHashMap<>();
+  private final Deque<SavedEvidence> pendingEvidence = new ArrayDeque<>();
+  private final Object stateLock = new Object();
+  private final ScheduledExecutorService persistenceExecutor =
+      Executors.newSingleThreadScheduledExecutor(
+          runnable -> {
+            Thread thread = new Thread(runnable, "ahaythorus-notification-persistence");
+            thread.setDaemon(true);
+            return thread;
+          });
+
+  private final boolean persistenceEnabled;
+  private final int maxInMemoryNotifications;
+  private final int maxPendingEvidence;
+  private final long flushIntervalSeconds;
+  private final int retentionDays;
+
+  private volatile SavedNotificationStore persistentStore;
 
   private NotificationService() {
-    this.persistentStore = createPersistentStore();
-    if (persistentStore != null) {
-      try {
-        persistentStore.getNotifications().forEach(notification ->
-            notifications.put(notificationKey(notification), notification));
-        LOGGER.info("Loaded {} persisted notification(s).", notifications.size());
-      } catch (IOException ex) {
-        LOGGER.warn("Failed loading persisted notifications. Starting with empty notification state.", ex);
-      }
+    this.persistenceEnabled = ConfigLoader.getBoolean("persistence.enabled", false);
+    this.maxInMemoryNotifications =
+        Math.max(1, ConfigLoader.getInt("notification.max.in.memory", 1000));
+    this.maxPendingEvidence =
+        Math.max(1, ConfigLoader.getInt("persistence.max.pending.evidence", 2000));
+    this.flushIntervalSeconds =
+        Math.max(1, ConfigLoader.getLong("persistence.flush.interval.seconds", 30));
+    this.retentionDays =
+        Math.min(
+            10,
+            Math.max(1, ConfigLoader.getInt("persistence.retention.days", 10)));
+
+    if (persistenceEnabled) {
+      initializePersistence();
+
+      persistenceExecutor.scheduleWithFixedDelay(
+          this::safeFlush,
+          flushIntervalSeconds,
+          flushIntervalSeconds,
+          TimeUnit.SECONDS);
+
+      Runtime.getRuntime().addShutdownHook(new Thread(this::safeFlush, "ahaythorus-notification-flush"));
+    } else {
+      LOGGER.info("Notification persistence is disabled.");
     }
   }
 
@@ -54,10 +95,10 @@ public final class NotificationService {
     Instant timestamp = snapshot.getTimestamp() == null ? Instant.now() : snapshot.getTimestamp();
 
     if (snapshot.getDeadlocks() != null && snapshot.getDeadlocks().length > 0) {
-      Map<String, Object> deadlockEvidence = new LinkedHashMap<>();
-      deadlockEvidence.put("severity", "CRITICAL");
-      deadlockEvidence.put("threadIds", snapshot.getDeadlocks());
-      deadlockEvidence.put("threads", snapshot.getThreadsInfos());
+      Map<String, Object> evidence = new LinkedHashMap<>();
+      evidence.put("severity", "CRITICAL");
+      evidence.put("threadIds", snapshot.getDeadlocks());
+      evidence.put("threads", snapshot.getThreadsInfos());
 
       record(
           "deadlock",
@@ -65,7 +106,7 @@ public final class NotificationService {
           "Deadlock detected: " + snapshot.getDeadlocks().length + " deadlocked thread(s).",
           timestamp,
           "CRITICAL",
-          deadlockEvidence);
+          evidence);
     }
 
     if (delta.getLeakSeverity() != null
@@ -123,19 +164,20 @@ public final class NotificationService {
     return notifications.values().stream()
         .sorted(
             Comparator.comparing(
-                    (SavedNotification notification) ->
-                        latest(notification.getInstances()))
+                    (SavedNotification notification) -> latest(notification.getInstances()))
                 .reversed())
         .toList();
   }
 
-  public List<com.acorp.jvminsight.notification.dto.SavedEvidence> getEvidence(
+  public List<SavedEvidence> getEvidence(
       String namespace, String pod, long pid, String id) {
-    if (persistentStore == null) {
+    SavedNotificationStore store = persistentStore;
+    if (store == null) {
       return List.of();
     }
+
     try {
-      return persistentStore.getEvidence(namespace, pod, pid, id);
+      return store.getEvidence(namespace, pod, pid, id);
     } catch (IOException ex) {
       LOGGER.warn("Failed reading persisted evidence for notification {}.", id, ex);
       return List.of();
@@ -149,82 +191,206 @@ public final class NotificationService {
       Instant timestamp,
       String severity,
       Object payload) {
-    PodInfo pod = PodInfoProvider.getPodInfo();
-    SavedNotification current =
-        notifications.compute(
-            notificationKey(id, pod, snapshot.getPid()),
-            (key, existing) -> {
-              SavedNotification notification =
-                  existing == null
-                      ? new SavedNotification(
-                          id,
-                          message,
-                          severity,
-                          new ArrayList<>(),
-                          pod.getNamespace(),
-                          pod.getName(),
-                          snapshot.getPid())
-                      : existing;
-              notification.setMessage(message);
-              notification.setSeverity(severity);
-              if (notification.getInstances() == null) {
-                notification.setInstances(new ArrayList<>());
-              }
-              notification.getInstances().add(timestamp);
-              return notification;
-            });
 
-    if (persistentStore == null) {
+    PodInfo pod = PodInfoProvider.getPodInfo();
+    String key = notificationKey(id, pod, snapshot.getPid());
+
+    synchronized (stateLock) {
+      SavedNotification notification = notifications.get(key);
+
+      if (notification == null) {
+        notification =
+            new SavedNotification(
+                id,
+                message,
+                severity,
+                new ArrayList<>(),
+                pod.getNamespace(),
+                pod.getName(),
+                snapshot.getPid());
+        notifications.put(key, notification);
+      }
+
+      notification.setMessage(message);
+      notification.setSeverity(severity);
+
+      if (notification.getInstances() == null) {
+        notification.setInstances(new ArrayList<>());
+      }
+
+      notification.getInstances().add(timestamp);
+
+      dirtyNotifications.put(key, copyNotification(notification));
+
+      if (persistenceEnabled) {
+        SavedEvidence evidence =
+            new SavedEvidence(
+                id,
+                pod.getNamespace(),
+                pod.getName(),
+                snapshot.getPid(),
+                timestamp,
+                message,
+                payload == null ? null : new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(payload));
+
+        if (pendingEvidence.size() >= maxPendingEvidence) {
+          pendingEvidence.pollFirst();
+          LOGGER.warn(
+              "Notification persistence buffer is full ({}). Dropping oldest pending evidence.",
+              maxPendingEvidence);
+        }
+
+        pendingEvidence.addLast(evidence);
+      }
+
+      trimInMemoryNotifications();
+    }
+  }
+
+  private void initializePersistence() {
+    try {
+      String type = ConfigLoader.get("persistence.type", "filesystem").trim().toLowerCase();
+      if (!"filesystem".equals(type)) {
+        LOGGER.warn(
+            "Unsupported persistence.type='{}'. Persistence will be retried but disabled for now.",
+            type);
+        return;
+      }
+
+      Path path = Path.of(ConfigLoader.get("persistence.path", "/data/ahaythorus"));
+      PersistenceStore store = new FileSystemPersistenceStore(path);
+      persistentStore = new SavedNotificationStore(store);
+
+      List<SavedNotification> loaded = persistentStore.getNotifications();
+
+      synchronized (stateLock) {
+        loaded.stream()
+            .sorted(
+                Comparator.comparing(
+                        (SavedNotification notification) -> latest(notification.getInstances()))
+                    .reversed())
+            .limit(maxInMemoryNotifications)
+            .forEach(notification ->
+                notifications.put(notificationKey(notification), notification));
+      }
+
+      LOGGER.info(
+          "Loaded {} persisted notification(s) into memory. Retention={} days, memory limit={}.",
+          Math.min(loaded.size(), maxInMemoryNotifications),
+          retentionDays,
+          maxInMemoryNotifications);
+    } catch (Exception ex) {
+      persistentStore = null;
+      LOGGER.warn(
+          "Notification persistence is unavailable. The sidecar will continue without persistence and retry on the next flush cycle.",
+          ex);
+    }
+  }
+
+  private void safeFlush() {
+    if (!persistenceEnabled) {
       return;
     }
 
     try {
-      persistentStore.saveNotification(current);
-      persistentStore.recordEvidence(
-          pod.getNamespace(), pod.getName(), snapshot.getPid(), id, message, timestamp, payload);
-    } catch (IOException ex) {
-      LOGGER.warn("Failed persisting notification {} for pid={}.", id, snapshot.getPid(), ex);
+      if (persistentStore == null) {
+        initializePersistence();
+        return;
+      }
+
+      flushPersistence();
+    } catch (Exception ex) {
+      LOGGER.warn("Notification persistence cycle failed. Collector execution will continue.", ex);
     }
   }
 
-  private SavedNotificationStore createPersistentStore() {
-    if (!ConfigLoader.getBoolean("persistence.enabled", false)) {
-      LOGGER.info("Notification persistence is disabled.");
-      return null;
+  private void flushPersistence() throws IOException {
+    SavedNotificationStore store = persistentStore;
+    if (store == null) {
+      return;
     }
 
-    String type = ConfigLoader.get("persistence.type", "filesystem").trim().toLowerCase();
-    if (!"filesystem".equals(type)) {
-      throw new IllegalStateException("Unsupported persistence.type: " + type);
+    List<SavedNotification> notificationsToSave;
+    List<SavedEvidence> evidenceToSave;
+
+    synchronized (stateLock) {
+      notificationsToSave = new ArrayList<>(dirtyNotifications.values());
+      evidenceToSave = new ArrayList<>(pendingEvidence);
     }
 
-    Path path = Path.of(ConfigLoader.get("persistence.path", "/data/ahaythorus"));
-    LOGGER.info("Notification persistence enabled using filesystem path {}.", path);
-    try {
-      return new SavedNotificationStore(
-          new com.acorp.jvminsight.persistence.FileSystemPersistenceStore(path));
-    } catch (IOException ex) {
-      throw new IllegalStateException(
-          "Unable to initialize notification persistence at " + path, ex);
+    for (SavedNotification notification : notificationsToSave) {
+      store.saveNotification(notification);
     }
+
+    for (SavedEvidence evidence : evidenceToSave) {
+      store.saveEvidence(evidence);
+    }
+
+    Instant cutoff = Instant.now().minusSeconds(retentionDays * 24L * 60L * 60L);
+    store.deleteExpired(cutoff);
+
+    synchronized (stateLock) {
+      dirtyNotifications.keySet().removeAll(
+          notificationsToSave.stream()
+              .map(this::notificationKey)
+              .toList());
+
+      for (SavedEvidence evidence : evidenceToSave) {
+        pendingEvidence.remove(evidence);
+      }
+    }
+
+    LOGGER.debug(
+        "Notification persistence flushed: notifications={}, evidence={}.",
+        notificationsToSave.size(),
+        evidenceToSave.size());
+  }
+
+  private void trimInMemoryNotifications() {
+    while (notifications.size() > maxInMemoryNotifications) {
+      String oldestKey =
+          notifications.entrySet().stream()
+              .min(
+                  Comparator.comparing(
+                      entry -> latest(entry.getValue().getInstances())))
+              .map(Map.Entry::getKey)
+              .orElse(null);
+
+      if (oldestKey == null) {
+        return;
+      }
+
+      notifications.remove(oldestKey);
+    }
+  }
+
+  private SavedNotification copyNotification(SavedNotification source) {
+    return new SavedNotification(
+        source.getId(),
+        source.getMessage(),
+        source.getSeverity(),
+        source.getInstances() == null
+            ? new ArrayList<>()
+            : new ArrayList<>(source.getInstances()),
+        source.getNamespace(),
+        source.getPod(),
+        source.getPid());
   }
 
   private String notificationKey(SavedNotification notification) {
     return notificationKey(
         notification.getId(),
-        podInfo(notification),
+        notification.getNamespace(),
+        notification.getPod(),
         notification.getPid());
   }
 
-  private PodInfo podInfo(SavedNotification notification) {
-    PodInfo pod = new PodInfo();
-    pod.setName(notification.getPod());
-    pod.setNamespace(notification.getNamespace());
-    return pod;
+  private String notificationKey(String id, PodInfo pod, long pid) {
+    return notificationKey(id, pod.getNamespace(), pod.getName(), pid);
   }
 
-  private String notificationKey(String id, PodInfo pod, long pid) {
-    return pod.getNamespace() + "/" + pod.getName() + ":" + pid + ":" + id;
+  private String notificationKey(String id, String namespace, String pod, long pid) {
+    return namespace + "/" + pod + ":" + pid + ":" + id;
   }
 
   private Instant latest(List<Instant> instances) {
