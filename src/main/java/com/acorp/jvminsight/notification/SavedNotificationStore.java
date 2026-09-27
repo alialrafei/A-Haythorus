@@ -23,110 +23,73 @@ public final class SavedNotificationStore {
   }
 
   public void saveNotification(SavedNotification notification) throws IOException {
-    if (notification == null || notification.getId() == null || notification.getId().isBlank()) {
-      throw new IllegalArgumentException("Notification id/code is required");
+    if (notification == null || notification.getHash() == null || notification.getHash().isBlank()) {
+      throw new IllegalArgumentException("Notification hash is required");
     }
-
-    store.save(
-        notificationKey(notification),
-        mapper.writeValueAsBytes(notification));
+    store.save(notificationKey(notification), mapper.writeValueAsBytes(notification));
   }
 
   public List<SavedNotification> getNotifications() throws IOException {
     return store.list(NOTIFICATION_PREFIX).stream()
-        .map(
-            key -> {
-              try {
-                return mapper.readValue(store.read(key).orElseThrow(), SavedNotification.class);
-              } catch (IOException e) {
-                throw new PersistenceReadException(e);
-              }
-            })
+        .map(key -> {
+          try {
+            return mapper.readValue(store.read(key).orElseThrow(), SavedNotification.class);
+          } catch (IOException e) {
+            throw new PersistenceReadException(e);
+          }
+        })
         .toList();
-  }
-
-  public void recordEvidence(
-      String namespace,
-      String pod,
-      long pid,
-      String notificationId,
-      String message,
-      Instant timestamp,
-      Object payload) throws IOException {
-    SavedEvidence evidence =
-        new SavedEvidence(
-            notificationId,
-            namespace,
-            pod,
-            pid,
-            timestamp,
-            message,
-            payload == null ? null : mapper.valueToTree(payload));
-    saveEvidence(evidence);
   }
 
   public void saveEvidence(SavedEvidence evidence) throws IOException {
     if (evidence == null
-        || evidence.getNotificationId() == null
-        || evidence.getNotificationId().isBlank()
+        || evidence.getNotificationHash() == null
+        || evidence.getNotificationHash().isBlank()
         || evidence.getTimestamp() == null) {
-      throw new IllegalArgumentException("Evidence notification id and timestamp are required");
+      throw new IllegalArgumentException("Evidence notification hash and timestamp are required");
     }
 
     String key =
         EVIDENCE_PREFIX
-            + safeId(evidence.getNamespace())
-            + "_"
-            + safeId(evidence.getPod())
-            + "_"
-            + evidence.getPid()
-            + "/"
-            + evidence.getTimestamp().toEpochMilli()
-            + "_"
-            + safeId(evidence.getNotificationId())
-            + ".json";
+            + safeId(evidence.getNamespace()) + "_"
+            + safeId(evidence.getPod()) + "_"
+            + evidence.getPid() + "/"
+            + evidence.getTimestamp().toEpochMilli() + "_"
+            + safeId(evidence.getNotificationHash()) + ".json";
 
     store.save(key, mapper.writeValueAsBytes(evidence));
   }
 
   public List<SavedEvidence> getEvidence(
-      String namespace, String pod, long pid, String notificationId) throws IOException {
+      String namespace, String pod, long pid, String notificationHash) throws IOException {
     String prefix =
-        EVIDENCE_PREFIX
-            + safeId(namespace)
-            + "_"
-            + safeId(pod)
-            + "_"
-            + pid
-            + "/";
+        EVIDENCE_PREFIX + safeId(namespace) + "_" + safeId(pod) + "_" + pid + "/";
+
     return store.list(prefix).stream()
         .filter(key -> key.endsWith(".json"))
-        .map(
-            key -> {
-              try {
-                return mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
-              } catch (IOException e) {
-                throw new PersistenceReadException(e);
-              }
-            })
-        .filter(evidence -> notificationId.equals(evidence.getNotificationId()))
+        .map(key -> {
+          try {
+            return mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
+          } catch (IOException e) {
+            throw new PersistenceReadException(e);
+          }
+        })
+        .filter(evidence -> notificationHash.equals(evidence.getNotificationHash()))
         .toList();
   }
 
   public void deleteExpired(Instant cutoff) throws IOException {
-    List<String> notificationKeys = store.list(NOTIFICATION_PREFIX);
-    for (String key : notificationKeys) {
+    for (String key : store.list(NOTIFICATION_PREFIX)) {
       OptionalRecord record = readNotification(key);
       if (record != null && !record.latest().isAfter(cutoff)) {
         store.delete(key);
       }
     }
 
-    List<String> evidenceKeys = store.list(EVIDENCE_PREFIX);
-    for (String key : evidenceKeys) {
+    for (String key : store.list(EVIDENCE_PREFIX)) {
       SavedEvidence evidence =
           mapper.readValue(store.read(key).orElseThrow(), SavedEvidence.class);
-      if (!evidence.getTimestamp().isAfter(cutoff)) {
+      if (evidence.getTimestamp() != null && !evidence.getTimestamp().isAfter(cutoff)) {
         store.delete(key);
       }
     }
@@ -135,10 +98,12 @@ public final class SavedNotificationStore {
   private OptionalRecord readNotification(String key) throws IOException {
     byte[] data = store.read(key).orElse(null);
     if (data == null) return null;
+
     SavedNotification notification = mapper.readValue(data, SavedNotification.class);
-    Instant latest = notification.getInstances() == null || notification.getInstances().isEmpty()
-        ? Instant.EPOCH
-        : notification.getInstances().stream().max(Instant::compareTo).orElse(Instant.EPOCH);
+    Instant latest =
+        notification.getInstances() == null || notification.getInstances().isEmpty()
+            ? Instant.EPOCH
+            : notification.getInstances().stream().max(Instant::compareTo).orElse(Instant.EPOCH);
     return new OptionalRecord(latest);
   }
 
@@ -146,18 +111,14 @@ public final class SavedNotificationStore {
 
   private String notificationKey(SavedNotification notification) {
     return NOTIFICATION_PREFIX
-        + safeId(notification.getNamespace())
-        + "_"
-        + safeId(notification.getPod())
-        + "_"
-        + notification.getPid()
-        + "_"
-        + safeId(notification.getId())
-        + ".json";
+        + safeId(notification.getNamespace()) + "_"
+        + safeId(notification.getPod()) + "_"
+        + notification.getPid() + "_"
+        + safeId(notification.getHash()) + ".json";
   }
 
   private String safeId(String id) {
-    return id.replaceAll("[^a-zA-Z0-9._-]", "_");
+    return id == null ? "unknown" : id.replaceAll("[^a-zA-Z0-9._-]", "_");
   }
 
   private static final class PersistenceReadException extends RuntimeException {
