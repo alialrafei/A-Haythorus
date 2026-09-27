@@ -43,9 +43,13 @@ public final class PodInfoProvider {
    * key is namespace + application label.
    */
   private static ShardMetaData resolveShard(PodInfo pod, int shardCount) {
+    String configuredFields =
+        ConfigLoader.get("cluster.shard.key-fields", "namespace,pod");
     List<String> fields =
-        ConfigLoader.getList(
-            "cluster.shard.key.fields", List.of("namespace", "pod"));
+        Arrays.stream(configuredFields.split(","))
+            .map(String::trim)
+            .filter(value -> !value.isBlank())
+            .toList();
 
     StringBuilder canonical = new StringBuilder();
     for (String field : fields) {
