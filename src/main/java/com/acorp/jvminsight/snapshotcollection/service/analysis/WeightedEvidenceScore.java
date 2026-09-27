@@ -9,8 +9,8 @@ import com.acorp.jvminsight.snapshotcollection.dto.analysis.EvidenceSignal;
  * score = sum(w_i * E_i) / sum(w_i)
  * </pre>
  *
- * <p>Only available signals with positive weights participate. Evidence is clamped to [0,1].
- * A weight of zero disables a signal. Negative weights are invalid.
+ * <p>Only available signals with positive weights participate. Evidence is clamped to [0,1]. A
+ * weight of zero disables a signal. Negative weights are invalid.
  */
 public final class WeightedEvidenceScore {
 

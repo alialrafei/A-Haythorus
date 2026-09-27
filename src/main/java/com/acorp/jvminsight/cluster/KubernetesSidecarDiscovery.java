@@ -25,7 +25,8 @@ import org.slf4j.LoggerFactory;
 public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesSidecarDiscovery.class);
-  private static final Path SERVICE_ACCOUNT_DIR = Path.of("/var/run/secrets/kubernetes.io/serviceaccount");
+  private static final Path SERVICE_ACCOUNT_DIR =
+      Path.of("/var/run/secrets/kubernetes.io/serviceaccount");
   private static final Path TOKEN_PATH = SERVICE_ACCOUNT_DIR.resolve("token");
   private static final Path CA_PATH = SERVICE_ACCOUNT_DIR.resolve("ca.crt");
   private static final Path NAMESPACE_PATH = SERVICE_ACCOUNT_DIR.resolve("namespace");
@@ -42,10 +43,12 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
         shardConfiguration.enabled() && shardConfiguration.shardCount() > 1
             ? ShardResolverFactory.create(shardConfiguration)
             : null;
-    this.httpClient = HttpClient.newBuilder()
-        .sslContext(KubernetesSslContextFactory.create(CA_PATH))
-        .connectTimeout(Duration.ofMillis(ConfigLoader.getLong("cluster.connect.timeout.ms", 1000)))
-        .build();
+    this.httpClient =
+        HttpClient.newBuilder()
+            .sslContext(KubernetesSslContextFactory.create(CA_PATH))
+            .connectTimeout(
+                Duration.ofMillis(ConfigLoader.getLong("cluster.connect.timeout.ms", 1000)))
+            .build();
   }
 
   @Override
@@ -61,7 +64,8 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
       String token = readRequiredFile(TOKEN_PATH);
       String apiHost = requiredEnvironment("KUBERNETES_SERVICE_HOST");
       String apiPort = System.getenv().getOrDefault("KUBERNETES_SERVICE_PORT_HTTPS", "443");
-      String labelSelector = ConfigLoader.get("sidecar.discovery.label", "a-haythorus.io/enabled=true");
+      String labelSelector =
+          ConfigLoader.get("sidecar.discovery.label", "a-haythorus.io/enabled=true");
       if (requestedShard != null) {
         labelSelector += "," + shardConfiguration.overrideLabel() + "=" + requestedShard;
       }
@@ -76,15 +80,26 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
     }
   }
 
-  private KubernetesPodList fetchPods(String apiHost, String apiPort, String namespace,
-      String token, String labelSelector) throws Exception {
-    URI uri = URI.create("https://" + apiHost + ":" + apiPort + "/api/v1/namespaces/"
-        + namespace + "/pods?labelSelector=" + URLEncoder.encode(labelSelector, StandardCharsets.UTF_8));
-    HttpRequest request = HttpRequest.newBuilder(uri)
-        .timeout(Duration.ofMillis(ConfigLoader.getLong("cluster.request.timeout.ms", 2000)))
-        .header("Authorization", "Bearer " + token)
-        .header("Accept", "application/json")
-        .GET().build();
+  private KubernetesPodList fetchPods(
+      String apiHost, String apiPort, String namespace, String token, String labelSelector)
+      throws Exception {
+    URI uri =
+        URI.create(
+            "https://"
+                + apiHost
+                + ":"
+                + apiPort
+                + "/api/v1/namespaces/"
+                + namespace
+                + "/pods?labelSelector="
+                + URLEncoder.encode(labelSelector, StandardCharsets.UTF_8));
+    HttpRequest request =
+        HttpRequest.newBuilder(uri)
+            .timeout(Duration.ofMillis(ConfigLoader.getLong("cluster.request.timeout.ms", 2000)))
+            .header("Authorization", "Bearer " + token)
+            .header("Accept", "application/json")
+            .GET()
+            .build();
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     if (response.statusCode() != 200) {
       throw new IllegalStateException("Kubernetes API returned HTTP " + response.statusCode());
@@ -97,7 +112,8 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
     String selfIp = ConfigLoader.get("pod.ip", "");
     String selfName = ConfigLoader.get("pod.name", "");
     int sidecarPort = ConfigLoader.getInt("server.port", 8899);
-    Integer localShard = requestedShard == null ? resolveLocalShard(podList, selfIp, selfName) : null;
+    Integer localShard =
+        requestedShard == null ? resolveLocalShard(podList, selfIp, selfName) : null;
 
     return podList.getItems().stream()
         .filter(this::isRunning)
@@ -112,45 +128,56 @@ public final class KubernetesSidecarDiscovery implements SidecarDiscovery {
 
   private Integer resolveLocalShard(KubernetesPodList podList, String selfIp, String selfName) {
     if (shardResolver == null) return null;
-    KubernetesPod self = podList.getItems().stream()
-        .filter(this::isRunning)
-        .filter(pod -> (pod.getStatus() != null && selfIp.equals(pod.getStatus().getPodIP()))
-            || (pod.getMetadata() != null && !selfName.isBlank() && selfName.equals(pod.getMetadata().getName())))
-        .findFirst()
-        .orElseThrow(() -> new IllegalStateException(
-            "Unable to locate the local pod in Kubernetes discovery results for sharding."));
-    return shardResolver.resolve(self);
+    KubernetesPod self =
+        podList.getItems().stream()
+            .filter(this::isRunning)
+            .filter(
+                pod ->
+                    (pod.getStatus() != null && selfIp.equals(pod.getStatus().getPodIP()))
+                        || (pod.getMetadata() != null
+                            && !selfName.isBlank()
+                            && selfName.equals(pod.getMetadata().getName())))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Unable to locate the local pod in Kubernetes discovery results for sharding."));
+    return shardResolver.resolve(self).getShardId();
   }
 
   private boolean belongsToLocalShard(KubernetesPod pod, Integer localShard) {
-    return localShard == null || shardResolver.resolve(pod) == localShard;
+    return localShard == null || shardResolver.resolve(pod).getShardId() == localShard;
   }
 
   private void validateRequestedShard(Integer shardId) {
     if (shardId == null) return;
     if (shardResolver == null) {
-      throw new IllegalStateException("Shard selection requires Kubernetes sharding with more than one shard.");
+      throw new IllegalStateException(
+          "Shard selection requires Kubernetes sharding with more than one shard.");
     }
     if (shardId < 0 || shardId >= shardConfiguration.shardCount()) {
-      throw new IllegalArgumentException("Requested shard must be in [0, "
-          + (shardConfiguration.shardCount() - 1) + "].");
+      throw new IllegalArgumentException(
+          "Requested shard must be in [0, " + (shardConfiguration.shardCount() - 1) + "].");
     }
   }
 
   private boolean isRunning(KubernetesPod pod) {
-    return pod != null && pod.getStatus() != null
+    return pod != null
+        && pod.getStatus() != null
         && "Running".equalsIgnoreCase(pod.getStatus().getPhase());
   }
 
   private String readRequiredFile(Path path) throws Exception {
     String value = Files.readString(path).trim();
-    if (value.isBlank()) throw new IllegalStateException("Required Kubernetes file is empty: " + path);
+    if (value.isBlank())
+      throw new IllegalStateException("Required Kubernetes file is empty: " + path);
     return value;
   }
 
   private String requiredEnvironment(String name) {
     String value = System.getenv(name);
-    if (value == null || value.isBlank()) throw new IllegalStateException("Required environment variable missing: " + name);
+    if (value == null || value.isBlank())
+      throw new IllegalStateException("Required environment variable missing: " + name);
     return value;
   }
 }

@@ -8,7 +8,6 @@ import com.acorp.jvminsight.httpserver.constant.RouteConstants;
 import com.acorp.jvminsight.httpserver.service.SnapshotService;
 import com.acorp.jvminsight.httpserver.util.JsonResponse;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmHistoryResponse;
-import com.acorp.jvminsight.snapshotcollection.dto.JvmHistorySample;
 import com.acorp.jvminsight.snapshotcollection.dto.JvmSnapshot;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -25,7 +24,8 @@ import org.slf4j.LoggerFactory;
 public final class SnapshotHandler implements HttpHandler {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SnapshotHandler.class);
-  private static final ClusterSnapshotService CLUSTER_SNAPSHOT_SERVICE = new ClusterSnapshotService();
+  private static final ClusterSnapshotService CLUSTER_SNAPSHOT_SERVICE =
+      new ClusterSnapshotService();
   private static final ClusterHistoryService CLUSTER_HISTORY_SERVICE = new ClusterHistoryService();
 
   @Override
@@ -167,12 +167,12 @@ public final class SnapshotHandler implements HttpHandler {
       case RouteConstants.THREADS -> JsonResponse.ok(exchange, snapshot.getDumpSnapshot());
       case RouteConstants.THREAD_INFO -> JsonResponse.ok(exchange, snapshot.getThreadsInfos());
       case RouteConstants.THREAD_COUNT -> handleThreadCount(exchange, snapshot);
-      case RouteConstants.THREAD_CPU_TIMES -> JsonResponse.ok(exchange, snapshot.getThreadCpuTimes());
+      case RouteConstants.THREAD_CPU_TIMES ->
+          JsonResponse.ok(exchange, snapshot.getThreadCpuTimes());
       case RouteConstants.ANALYSIS -> JsonResponse.ok(exchange, snapshot.getDelta());
       case RouteConstants.DEADLOCKS -> handleDeadlocks(exchange, snapshot);
       case RouteConstants.TIMESTAMP -> handleTimestamp(exchange, snapshot);
-      case RouteConstants.JVM_HISTORY ->
-          handleHistory(exchange, snapshot.getPid(), requestedShard);
+      case RouteConstants.JVM_HISTORY -> handleHistory(exchange, snapshot.getPid(), requestedShard);
       default -> JsonResponse.notFound(exchange, "Unknown JVM resource: " + resource);
     }
   }

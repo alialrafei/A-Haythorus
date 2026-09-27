@@ -22,8 +22,7 @@ public record ShardConfiguration(
   private static final Logger LOGGER = LoggerFactory.getLogger(ShardConfiguration.class);
 
   public static ShardConfiguration load() {
-    boolean enabled =
-        Boolean.parseBoolean(ConfigLoader.get("cluster.sharding.enabled", "false"));
+    boolean enabled = Boolean.parseBoolean(ConfigLoader.get("cluster.sharding.enabled", "false"));
 
     int shardCount = ConfigLoader.getInt("cluster.shard.count", 1);
     if (shardCount <= 0) {

@@ -8,8 +8,7 @@ package com.acorp.jvminsight.snapshotcollection.dto.analysis;
  * @param available whether the signal was actually observable
  * @param description human-readable interpretation
  */
-public record EvidenceSignal(
-    String name, double value, boolean available, String description) {
+public record EvidenceSignal(String name, double value, boolean available, String description) {
 
   public static EvidenceSignal available(String name, double value, String description) {
     return new EvidenceSignal(name, clamp01(value), true, description);

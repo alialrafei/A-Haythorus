@@ -87,12 +87,7 @@ public final class CpuAnalyzer {
                 mean * 100.0, peak * 100.0, persistence * 100.0));
 
     return new AnalysisResult(
-        "cpu",
-        "Sustained CPU pressure",
-        sustainedPressure * 100.0,
-        evidence,
-        metrics,
-        reasons);
+        "cpu", "Sustained CPU pressure", sustainedPressure * 100.0, evidence, metrics, reasons);
   }
 
   private static List<Double> intervalUtilizations(List<ProcessHistorySample> samples) {
@@ -132,10 +127,8 @@ public final class CpuAnalyzer {
         "Sustained CPU pressure",
         0.0,
         List.of(
-            EvidenceSignal.unavailable(
-                "cpu-utilization", "Insufficient process CPU history."),
-            EvidenceSignal.unavailable(
-                "cpu-persistence", "Insufficient process CPU history.")),
+            EvidenceSignal.unavailable("cpu-utilization", "Insufficient process CPU history."),
+            EvidenceSignal.unavailable("cpu-persistence", "Insufficient process CPU history.")),
         Map.of(),
         List.of("Insufficient process CPU history to evaluate sustained pressure."));
   }

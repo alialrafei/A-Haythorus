@@ -25,13 +25,13 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
   }
 
   @Override
-  public int resolve(KubernetesPod pod) {
-    Integer override = explicitOverride(pod);
+  public ShardMetaData resolve(KubernetesPod pod) {
+    ShardMetaData override = explicitOverride(pod);
     return override != null ? override : resolveComputed(pod);
   }
 
   @Override
-  public int resolveComputed(KubernetesPod pod) {
+  public ShardMetaData resolveComputed(KubernetesPod pod) {
     String key;
     try {
       key = keyResolver.resolve(pod, config.keyFields());
@@ -50,7 +50,12 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
     byte[] digest = sha256(key);
     byte[] firstEightBytes = Arrays.copyOf(digest, Long.BYTES);
     BigInteger hash64 = new BigInteger(1, firstEightBytes);
-    return hash64.mod(BigInteger.valueOf(config.shardCount())).intValue();
+    int shardId = hash64.mod(BigInteger.valueOf(config.shardCount())).intValue();
+    String shardName =
+        pod.getMetadata().getNamespace()
+            + "/"
+            + pod.getMetadata().getLabels().getOrDefault("app", "<unknown>");
+    return new ShardMetaData(shardId, shardName);
   }
 
   @Override
@@ -58,7 +63,7 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
     return config.shardCount();
   }
 
-  private Integer explicitOverride(KubernetesPod pod) {
+  private ShardMetaData explicitOverride(KubernetesPod pod) {
     if (pod == null || pod.getMetadata() == null || config.overrideLabel().isBlank()) {
       return null;
     }
@@ -75,17 +80,30 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
       shard = Integer.parseInt(value.trim());
     } catch (NumberFormatException ex) {
       throw new IllegalStateException(
-          "Shard override label '" + config.overrideLabel() + "' must be an integer but was '" + value + "'.",
+          "Shard override label '"
+              + config.overrideLabel()
+              + "' must be an integer but was '"
+              + value
+              + "'.",
           ex);
     }
 
     if (shard < 0 || shard >= config.shardCount()) {
       throw new IllegalStateException(
-          "Shard override " + shard + " for pod " + podName(pod) + " is outside [0, "
-              + (config.shardCount() - 1) + "].");
+          "Shard override "
+              + shard
+              + " for pod "
+              + podName(pod)
+              + " is outside [0, "
+              + (config.shardCount() - 1)
+              + "].");
     }
 
-    return shard;
+    return new ShardMetaData(
+        shard,
+        pod.getMetadata().getNamespace()
+            + "/"
+            + pod.getMetadata().getLabels().getOrDefault("app", "<unknown>"));
   }
 
   private byte[] sha256(String key) {

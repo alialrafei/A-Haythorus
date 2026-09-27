@@ -24,8 +24,8 @@ import org.slf4j.LoggerFactory;
  * Main orchestrator for pairwise JVM deltas plus historical analysis.
  *
  * <p>Pairwise strategies still describe the newest interval. Runtime-neutral CPU/I/O analysis is
- * delegated to {@link RuntimeAnalysisEngine}; JVM-only retention analysis remains in
- * {@link HistoricalLeakAnalyzer}.
+ * delegated to {@link RuntimeAnalysisEngine}; JVM-only retention analysis remains in {@link
+ * HistoricalLeakAnalyzer}.
  */
 public final class DeltaEngine {
 
