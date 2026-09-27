@@ -120,12 +120,13 @@ public final class NotificationService {
         .toList();
   }
 
-  public List<com.acorp.jvminsight.notification.dto.SavedEvidence> getEvidence(String id) {
+  public List<com.acorp.jvminsight.notification.dto.SavedEvidence> getEvidence(
+      String namespace, String pod, long pid, String id) {
     if (persistentStore == null) {
       return List.of();
     }
     try {
-      return persistentStore.getEvidence(id);
+      return persistentStore.getEvidence(namespace, pod, pid, id);
     } catch (IOException ex) {
       LOGGER.warn("Failed reading persisted evidence for notification {}.", id, ex);
       return List.of();
