@@ -43,7 +43,7 @@ export function ProblemsPage({ onOpenJvm }: { onOpenJvm: (key: string) => void; 
     setExpandedKey(key);
     setEvidenceLoading(true);
     try {
-      setEvidence(await sidecarApi.getNotificationEvidence(notification.id, notification.namespace, notification.pod, notification.pid));
+      setEvidence(await sidecarApi.getNotificationEvidence(notification.id, notification.namespace, notification.pod, notification.pid, sharding.enabled ? selectedShard : null));
     } catch {
       setEvidence([]);
     } finally {
