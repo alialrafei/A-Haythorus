@@ -28,7 +28,7 @@ public final class SavedNotificationStore {
       String id, String message, Instant timestamp) throws IOException {
     SavedNotification notification =
         getNotification(id)
-            .orElseGet(() -> new SavedNotification(id, message, new ArrayList<>(), "", "", 0L));
+            .orElseGet(() -> new SavedNotification(id, message, "UNKNOWN", new ArrayList<>(), "", "", 0L));
 
     notification.setMessage(message);
 
