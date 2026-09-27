@@ -1,5 +1,8 @@
 package com.acorp.jvminsight.httpserver.handler;
 
+import com.acorp.jvminsight.cluster.ClusterHeaders;
+import com.acorp.jvminsight.cluster.ClusterNotificationService;
+import com.acorp.jvminsight.httpserver.constant.RouteConstants;
 import com.acorp.jvminsight.httpserver.util.JsonResponse;
 import com.acorp.jvminsight.notification.NotificationService;
 import com.sun.net.httpserver.HttpExchange;
@@ -11,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 public final class NotificationHandler implements HttpHandler {
 
   private final NotificationService notificationService = NotificationService.getInstance();
+  private final ClusterNotificationService clusterNotificationService = new ClusterNotificationService();
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
@@ -20,8 +24,13 @@ public final class NotificationHandler implements HttpHandler {
     }
 
     String path = normalize(exchange.getRequestURI().getPath());
-    if ("/api/v1/notifications".equals(path)) {
-      JsonResponse.ok(exchange, notificationService.getNotifications());
+    if (RouteConstants.NOTIFICATIONS.equals(path)) {
+      Integer shard = parseShard(exchange);
+      boolean local = ClusterHeaders.LOCAL.equalsIgnoreCase(
+          exchange.getRequestHeaders().getFirst(ClusterHeaders.SCOPE));
+      JsonResponse.ok(
+          exchange,
+          local ? notificationService.getNotifications() : clusterNotificationService.getNotifications(shard));
       return;
     }
 
@@ -47,6 +56,16 @@ public final class NotificationHandler implements HttpHandler {
     }
 
     JsonResponse.notFound(exchange);
+  }
+
+  private Integer parseShard(HttpExchange exchange) {
+    String value = query(exchange, "shard");
+    if (value == null || value.isBlank()) return null;
+    try {
+      return Integer.valueOf(value);
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException("Invalid shard: " + value);
+    }
   }
 
   private String query(HttpExchange exchange, String name) {
