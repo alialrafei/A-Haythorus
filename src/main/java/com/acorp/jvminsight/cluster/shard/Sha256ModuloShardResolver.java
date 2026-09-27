@@ -54,7 +54,7 @@ public final class Sha256ModuloShardResolver implements ShardResolver {
     String shardName =
         pod.getMetadata().getNamespace()
             + "/"
-            + pod.getMetadata().getLabels().getOrDefault("app", "<unknown>");
+            + pod.getMetadata().getLabels().getOrDefault("app.kubernetes.io/name", pod.getMetadata().getLabels().getOrDefault("app", "<unknown>"));
     return new ShardMetaData(shardId, shardName);
   }
 
